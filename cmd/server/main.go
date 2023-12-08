@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"net/http"
 	"yaprakticum-go-track2/internal/handlers/getMetrics"
 	"yaprakticum-go-track2/internal/handlers/middlware"
@@ -25,11 +26,15 @@ func Router() chi.Router {
 
 func main() {
 
+	endp := flag.String("a", ":8080", "Server endpoint address:port")
+	flag.Parse()
+
 	dataStorage = storage.InitStorage()
 	updateMetrics.SetDataStorage(&dataStorage)
 	getMetric.SetDataStorage(&dataStorage)
 
-	if err := http.ListenAndServe(":8080", Router()); err != nil {
+	println("Server running at " + *endp)
+	if err := http.ListenAndServe(*endp, Router()); err != nil {
 		panic(err)
 	}
 }
