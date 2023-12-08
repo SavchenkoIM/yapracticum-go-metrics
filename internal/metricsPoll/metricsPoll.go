@@ -55,9 +55,9 @@ func NewMetricsHandler() MetricsHandler {
 	}
 }
 
-func (this MetricsHandler) SendData() {
-	for _, v := range this.metricsSlice {
-		_, err := this.client.Post("http://localhost:8080/update/"+v.typ+"/"+v.name+"/"+v.value,
+func (ths MetricsHandler) SendData() {
+	for _, v := range ths.metricsSlice {
+		_, err := ths.client.Post("http://localhost:8080/update/"+v.typ+"/"+v.name+"/"+v.value,
 			"text/plain",
 			nil)
 		if err != nil {
@@ -66,41 +66,41 @@ func (this MetricsHandler) SendData() {
 	}
 }
 
-func (this *MetricsHandler) RefreshData() {
+func (ths *MetricsHandler) RefreshData() {
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
 
-	this.metricsSlice[0].value = fmt.Sprintf("%v", ms.Alloc)
-	this.metricsSlice[1].value = fmt.Sprintf("%v", ms.BuckHashSys)
-	this.metricsSlice[2].value = fmt.Sprintf("%v", ms.Frees)
-	this.metricsSlice[3].value = fmt.Sprintf("%v", ms.GCCPUFraction)
-	this.metricsSlice[4].value = fmt.Sprintf("%v", ms.GCSys)
-	this.metricsSlice[5].value = fmt.Sprintf("%v", ms.HeapAlloc)
-	this.metricsSlice[6].value = fmt.Sprintf("%v", ms.HeapIdle)
-	this.metricsSlice[7].value = fmt.Sprintf("%v", ms.HeapInuse)
-	this.metricsSlice[8].value = fmt.Sprintf("%v", ms.HeapObjects)
-	this.metricsSlice[9].value = fmt.Sprintf("%v", ms.HeapReleased)
-	this.metricsSlice[10].value = fmt.Sprintf("%v", ms.HeapSys)
-	this.metricsSlice[11].value = fmt.Sprintf("%v", ms.LastGC)
-	this.metricsSlice[12].value = fmt.Sprintf("%v", ms.Lookups)
-	this.metricsSlice[13].value = fmt.Sprintf("%v", ms.MCacheInuse)
-	this.metricsSlice[14].value = fmt.Sprintf("%v", ms.MCacheSys)
-	this.metricsSlice[15].value = fmt.Sprintf("%v", ms.MSpanInuse)
-	this.metricsSlice[16].value = fmt.Sprintf("%v", ms.MSpanSys)
-	this.metricsSlice[17].value = fmt.Sprintf("%v", ms.Mallocs)
-	this.metricsSlice[18].value = fmt.Sprintf("%v", ms.NextGC)
-	this.metricsSlice[19].value = fmt.Sprintf("%v", ms.NumForcedGC)
-	this.metricsSlice[20].value = fmt.Sprintf("%v", ms.NumGC)
-	this.metricsSlice[21].value = fmt.Sprintf("%v", ms.OtherSys)
-	this.metricsSlice[22].value = fmt.Sprintf("%v", ms.PauseTotalNs)
-	this.metricsSlice[23].value = fmt.Sprintf("%v", ms.StackInuse)
-	this.metricsSlice[24].value = fmt.Sprintf("%v", ms.StackSys)
-	this.metricsSlice[25].value = fmt.Sprintf("%v", ms.Sys)
-	this.metricsSlice[26].value = fmt.Sprintf("%v", ms.TotalAlloc)
-	this.metricsSlice[27].value = fmt.Sprintf("%v", rand.Float64())
-	//this.metricsSlice[28].value = fmt.Sprintf("%d", this.counter)
+	ths.metricsSlice[0].value = fmt.Sprintf("%v", ms.Alloc)
+	ths.metricsSlice[1].value = fmt.Sprintf("%v", ms.BuckHashSys)
+	ths.metricsSlice[2].value = fmt.Sprintf("%v", ms.Frees)
+	ths.metricsSlice[3].value = fmt.Sprintf("%v", ms.GCCPUFraction)
+	ths.metricsSlice[4].value = fmt.Sprintf("%v", ms.GCSys)
+	ths.metricsSlice[5].value = fmt.Sprintf("%v", ms.HeapAlloc)
+	ths.metricsSlice[6].value = fmt.Sprintf("%v", ms.HeapIdle)
+	ths.metricsSlice[7].value = fmt.Sprintf("%v", ms.HeapInuse)
+	ths.metricsSlice[8].value = fmt.Sprintf("%v", ms.HeapObjects)
+	ths.metricsSlice[9].value = fmt.Sprintf("%v", ms.HeapReleased)
+	ths.metricsSlice[10].value = fmt.Sprintf("%v", ms.HeapSys)
+	ths.metricsSlice[11].value = fmt.Sprintf("%v", ms.LastGC)
+	ths.metricsSlice[12].value = fmt.Sprintf("%v", ms.Lookups)
+	ths.metricsSlice[13].value = fmt.Sprintf("%v", ms.MCacheInuse)
+	ths.metricsSlice[14].value = fmt.Sprintf("%v", ms.MCacheSys)
+	ths.metricsSlice[15].value = fmt.Sprintf("%v", ms.MSpanInuse)
+	ths.metricsSlice[16].value = fmt.Sprintf("%v", ms.MSpanSys)
+	ths.metricsSlice[17].value = fmt.Sprintf("%v", ms.Mallocs)
+	ths.metricsSlice[18].value = fmt.Sprintf("%v", ms.NextGC)
+	ths.metricsSlice[19].value = fmt.Sprintf("%v", ms.NumForcedGC)
+	ths.metricsSlice[20].value = fmt.Sprintf("%v", ms.NumGC)
+	ths.metricsSlice[21].value = fmt.Sprintf("%v", ms.OtherSys)
+	ths.metricsSlice[22].value = fmt.Sprintf("%v", ms.PauseTotalNs)
+	ths.metricsSlice[23].value = fmt.Sprintf("%v", ms.StackInuse)
+	ths.metricsSlice[24].value = fmt.Sprintf("%v", ms.StackSys)
+	ths.metricsSlice[25].value = fmt.Sprintf("%v", ms.Sys)
+	ths.metricsSlice[26].value = fmt.Sprintf("%v", ms.TotalAlloc)
+	ths.metricsSlice[27].value = fmt.Sprintf("%v", rand.Float64())
+	//ths.metricsSlice[28].value = fmt.Sprintf("%d", this.counter)
 
-	_, err := this.client.Post("http://localhost:8080/update/counter/PollCount/1",
+	_, err := ths.client.Post("http://localhost:8080/update/counter/PollCount/1",
 		"text/plain",
 		nil)
 	if err != nil {

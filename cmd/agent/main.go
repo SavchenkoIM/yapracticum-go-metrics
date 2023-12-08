@@ -1,8 +1,8 @@
 package main
 
 import (
-	"metricsPoll"
 	"time"
+	"yaprakticum-go-track2/internal/metricsPoll"
 )
 
 func main() {
