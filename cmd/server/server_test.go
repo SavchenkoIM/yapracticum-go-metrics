@@ -58,7 +58,6 @@ func TestIter2Server(t *testing.T) {
 			} else {
 				res, _ = srv.Client().Post(srv.URL+tt.url, "text/plain", nil)
 			}
-			defer res.Body.Close()
 
 			assert.Equal(t, tt.wantStatusCode, res.StatusCode)
 			if tt.wantKv != nil {
@@ -67,6 +66,8 @@ func TestIter2Server(t *testing.T) {
 					assert.Equal(t, v.value, val)
 				}
 			}
+
+			res.Body.Close()
 		})
 		/*} else {
 
