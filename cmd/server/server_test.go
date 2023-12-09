@@ -55,8 +55,10 @@ func TestIter2Server(t *testing.T) {
 
 			if tt.method == http.MethodGet {
 				res, _ = srv.Client().Get(srv.URL + tt.url)
+				res.Body.Close()
 			} else {
 				res, _ = srv.Client().Post(srv.URL+tt.url, "text/plain", nil)
+				res.Body.Close()
 			}
 
 			assert.Equal(t, tt.wantStatusCode, res.StatusCode)
@@ -66,8 +68,6 @@ func TestIter2Server(t *testing.T) {
 					assert.Equal(t, v.value, val)
 				}
 			}
-
-			res.Body.Close()
 		})
 		/*} else {
 
