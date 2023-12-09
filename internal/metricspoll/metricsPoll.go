@@ -59,10 +59,10 @@ func NewMetricsHandler(endp string) MetricsHandler {
 
 func (ths MetricsHandler) SendData() {
 	for _, v := range ths.metricsSlice {
-		_, err := ths.client.Post("http://"+srvEndp+"/update/"+v.typ+"/"+v.name+"/"+v.value,
+		res, err := ths.client.Post("http://"+srvEndp+"/update/"+v.typ+"/"+v.name+"/"+v.value,
 			"text/plain",
 			nil)
-		//defer res.Body.Close()
+		res.Body.Close()
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 		}
@@ -105,11 +105,12 @@ func (ths *MetricsHandler) RefreshData() {
 	ths.metricsSlice[27].value = fmt.Sprintf("%v", rand.Float64())
 	//ths.metricsSlice[28].value = fmt.Sprintf("%d", this.counter)
 
-	_, err := ths.client.Post("http://"+srvEndp+"/update/counter/PollCount/1",
+	res, err := ths.client.Post("http://"+srvEndp+"/update/counter/PollCount/1",
 		"text/plain",
 		nil)
-	//defer res.Body.Close()
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
+		return
 	}
+	defer res.Body.Close()
 }
