@@ -20,14 +20,14 @@ func GetAllMetricsHandler(res http.ResponseWriter, req *http.Request) {
 	res.Write([]byte("=========================\n"))
 	res.Write([]byte("COUNTERS:\n"))
 
-	for k, v := range dataStorage.Counters.Data {
+	for k, v := range dataStorage.Counters.ReadData() {
 		res.Write([]byte(fmt.Sprintf("%s: %d\n", k, v)))
 	}
 
 	res.Write([]byte("=========================\n"))
 	res.Write([]byte("GAUGES:\n"))
 
-	for k, v := range dataStorage.Gauges.Data {
+	for k, v := range dataStorage.Gauges.ReadData() {
 		res.Write([]byte(fmt.Sprintf("%s: %f\n", k, v)))
 	}
 }

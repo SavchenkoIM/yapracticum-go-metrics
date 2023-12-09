@@ -24,14 +24,14 @@ func (ths MemStorage) ReadData(typ string, key string) (interface{}, error) {
 
 	switch typ {
 	case "counter":
-		val, exist := ths.Counters.Data[key]
+		val, exist := ths.Counters.data[key]
 		if exist {
 			return val, nil
 		} else {
 			return nil, errors.New("Key counters/" + key + " not exists")
 		}
 	case "gauge":
-		val, exist := ths.Gauges.Data[key]
+		val, exist := ths.Gauges.data[key]
 		if exist {
 			return val, nil
 		} else {
@@ -46,23 +46,27 @@ func (ths MemStorage) ReadData(typ string, key string) (interface{}, error) {
 // Float64
 
 type metricFloat64 struct {
-	Data map[string]float64
+	data map[string]float64
 }
 
 func newMetricFloat64() metricFloat64 {
 	var v metricFloat64
-	v.Data = make(map[string]float64)
+	v.data = make(map[string]float64)
 	return v
+}
+
+func (ths metricFloat64) ReadData() map[string]float64 {
+	return ths.data
 }
 
 func (ths metricFloat64) WriteData(key string, value string) error {
 	v, err := strconv.ParseFloat(value, 64)
 
 	if err == nil {
-		ths.Data[key] = v
+		ths.data[key] = v
 	}
 
-	v2, exist := ths.Data[key]
+	v2, exist := ths.data[key]
 	if exist {
 		println("Value of " + key + " is " + fmt.Sprintf("%f", v2))
 	}
@@ -72,7 +76,17 @@ func (ths metricFloat64) WriteData(key string, value string) error {
 // Int64 Cumulative
 
 type metricInt64Sum struct {
-	Data map[string]int64
+	data map[string]int64
+}
+
+func newMetricInt64Sum() metricInt64Sum {
+	var v metricInt64Sum
+	v.data = make(map[string]int64)
+	return v
+}
+
+func (ths metricInt64Sum) ReadData() map[string]int64 {
+	return ths.data
 }
 
 func (ths metricInt64Sum) WriteData(key string, value string) error {
@@ -80,18 +94,12 @@ func (ths metricInt64Sum) WriteData(key string, value string) error {
 	v, err := strconv.ParseInt(value, 10, 64)
 
 	if err == nil {
-		ths.Data[key] += v
+		ths.data[key] += v
 	}
 
-	v2, exist := ths.Data[key]
+	v2, exist := ths.data[key]
 	if exist {
 		println("Value of " + key + " is " + fmt.Sprintf("%d", v2))
 	}
 	return err
-}
-
-func newMetricInt64Sum() metricInt64Sum {
-	var v metricInt64Sum
-	v.Data = make(map[string]int64)
-	return v
 }
