@@ -5,7 +5,7 @@ import (
 	"os"
 	"strconv"
 	"time"
-	"yaprakticum-go-track2/internal/metricsPoll"
+	"yaprakticum-go-track2/internal/metricspoll"
 )
 
 func main() {
@@ -18,17 +18,23 @@ func main() {
 	if val, exist := os.LookupEnv("ADDRESS"); exist {
 		*endp = val
 	}
-	if val, err := strconv.ParseFloat(os.Getenv("REPORT_INTERVAL"), 64); err != nil {
-		*reportInterval = val
+
+	if _, exist := os.LookupEnv("REPORT_INTERVAL"); exist {
+		if val, err := strconv.ParseFloat(os.Getenv("REPORT_INTERVAL"), 64); err != nil {
+			*reportInterval = val
+		}
 	}
-	if val, err := strconv.ParseFloat(os.Getenv("POLL_INTERVAL"), 64); err != nil {
-		*pollInterval = val
+	if _, exist := os.LookupEnv("POLL_INTERVAL"); exist {
+		if val, err := strconv.ParseFloat(os.Getenv("POLL_INTERVAL"), 64); err != nil {
+			*pollInterval = val
+		}
 	}
 
 	pollInterval_ := time.Duration(*pollInterval) * time.Second
 	reportInterval_ := time.Duration(*reportInterval) * time.Second
 
-	mh := metricsPoll.NewMetricsHandler(*endp)
+	mh := metricspoll.NewMetricsHandler(*endp)
+	mh.RefreshData()
 
 	lastPoll := time.Now()
 	lastReport := time.Now()
@@ -37,12 +43,12 @@ func main() {
 
 		time.Sleep(50 * time.Millisecond)
 
-		if (time.Now().Sub(lastPoll)) >= pollInterval_ {
+		if (time.Since(lastPoll)) >= pollInterval_ {
 			lastPoll = time.Now()
 			mh.RefreshData()
 		}
 
-		if (time.Now().Sub(lastReport)) >= reportInterval_ {
+		if (time.Since(lastReport)) >= reportInterval_ {
 			lastReport = time.Now()
 			mh.SendData()
 		}

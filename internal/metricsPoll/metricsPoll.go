@@ -1,4 +1,4 @@
-package metricsPoll
+package metricspoll
 
 import (
 	"fmt"
@@ -20,8 +20,8 @@ type MetricsHandler struct {
 }
 
 func NewMetricsHandler(endp string) MetricsHandler {
-	srv_endp = endp
-
+	srvEndp = endp
+	print(srvEndp)
 	return MetricsHandler{
 		metricsSlice: []metricsData{
 			{name: "Alloc", typ: "gauge", value: ""},
@@ -59,16 +59,17 @@ func NewMetricsHandler(endp string) MetricsHandler {
 
 func (ths MetricsHandler) SendData() {
 	for _, v := range ths.metricsSlice {
-		_, err := ths.client.Post("http://"+srv_endp+"/update/"+v.typ+"/"+v.name+"/"+v.value,
+		_, err := ths.client.Post("http://"+srvEndp+"/update/"+v.typ+"/"+v.name+"/"+v.value,
 			"text/plain",
 			nil)
+		//defer res.Body.Close()
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 		}
 	}
 }
 
-var srv_endp string
+var srvEndp string
 
 func (ths *MetricsHandler) RefreshData() {
 	var ms runtime.MemStats
@@ -104,9 +105,10 @@ func (ths *MetricsHandler) RefreshData() {
 	ths.metricsSlice[27].value = fmt.Sprintf("%v", rand.Float64())
 	//ths.metricsSlice[28].value = fmt.Sprintf("%d", this.counter)
 
-	_, err := ths.client.Post("http://"+srv_endp+"/update/counter/PollCount/1",
+	_, err := ths.client.Post("http://"+srvEndp+"/update/counter/PollCount/1",
 		"text/plain",
 		nil)
+	//defer res.Body.Close()
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	}

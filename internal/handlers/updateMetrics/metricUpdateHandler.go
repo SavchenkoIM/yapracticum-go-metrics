@@ -1,4 +1,4 @@
-package updateMetrics
+package updatemetrics
 
 import (
 	"net/http"
