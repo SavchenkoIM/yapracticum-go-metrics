@@ -4,9 +4,9 @@ import (
 	"flag"
 	"net/http"
 	"os"
-	"yaprakticum-go-track2/internal/handlers/getMetrics"
+	"yaprakticum-go-track2/internal/handlers/getmetrics"
 	"yaprakticum-go-track2/internal/handlers/middlware"
-	"yaprakticum-go-track2/internal/handlers/updateMetrics"
+	"yaprakticum-go-track2/internal/handlers/updatemetrics"
 	"yaprakticum-go-track2/internal/storage"
 
 	"github.com/go-chi/chi/v5"
@@ -18,9 +18,9 @@ func Router() chi.Router {
 
 	mux := chi.NewRouter()
 	mux.Use(middlware.CkeckIfAllCorrect)
-	mux.Post("/update/{type}/{name}/{value}", updateMetrics.MetricUpdateHandler)
-	mux.Get("/value/{type}/{name}", getMetric.GetMetricHandler)
-	mux.Get("/", getMetric.GetAllMetricsHandler)
+	mux.Post("/update/{type}/{name}/{value}", updatemetrics.MetricUpdateHandler)
+	mux.Get("/value/{type}/{name}", getmetric.GetMetricHandler)
+	mux.Get("/", getmetric.GetAllMetricsHandler)
 	return mux
 
 }
@@ -36,8 +36,8 @@ func main() {
 	}
 
 	dataStorage = storage.InitStorage()
-	updateMetrics.SetDataStorage(&dataStorage)
-	getMetric.SetDataStorage(&dataStorage)
+	updatemetrics.SetDataStorage(&dataStorage)
+	getmetric.SetDataStorage(&dataStorage)
 
 	println("Server running at " + *endp)
 	if err := http.ListenAndServe(*endp, Router()); err != nil {

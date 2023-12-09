@@ -1,13 +1,11 @@
 package main
 
 import (
-	_ "fmt"
-	_ "io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"yaprakticum-go-track2/internal/handlers/getMetrics"
-	"yaprakticum-go-track2/internal/handlers/updateMetrics"
+	"yaprakticum-go-track2/internal/handlers/getmetrics"
+	"yaprakticum-go-track2/internal/handlers/updatemetrics"
 	"yaprakticum-go-track2/internal/storage"
 
 	"github.com/stretchr/testify/assert"
@@ -22,28 +20,28 @@ func TestIter2Server(t *testing.T) {
 	}
 
 	tests := []struct {
-		testName        string
-		method          string
-		url             string
-		want_statusCode int
-		want_kv         []kv
+		testName       string
+		method         string
+		url            string
+		wantStatusCode int
+		wantKv         []kv
 	}{
-		{testName: "GET Request", method: http.MethodGet, url: "/update/counter/testVal/1", want_statusCode: http.StatusBadRequest, want_kv: nil},
-		//{testName: "Without \"update\" prefix", method: http.MethodPost, url: "/counter/testVal/1", want_statusCode: http.StatusNotFound, want_kv: nil},
-		{testName: "Incorrect type", method: http.MethodPost, url: "/update/countter/testVal/1", want_statusCode: http.StatusBadRequest, want_kv: nil},
-		{testName: "Incorrect value", method: http.MethodPost, url: "/update/counter/testVal/f1", want_statusCode: http.StatusBadRequest, want_kv: nil},
-		{testName: "No value", method: http.MethodPost, url: "/update/counter/testVal/", want_statusCode: http.StatusBadRequest, want_kv: nil},
-		{testName: "No key", method: http.MethodPost, url: "/update/counter/", want_statusCode: http.StatusNotFound, want_kv: nil},
-		{testName: "No type", method: http.MethodPost, url: "/update/", want_statusCode: http.StatusNotFound, want_kv: nil},
-		{testName: "Initializing counter testVal", method: http.MethodPost, url: "/update/counter/testVal/1", want_statusCode: http.StatusOK, want_kv: []kv{kv{typ: "counter", key: "testVal", value: int64(1)}}},
-		{testName: "Adding value to existing counter testVal", method: http.MethodPost, url: "/update/counter/testVal/2", want_statusCode: http.StatusOK, want_kv: []kv{kv{typ: "counter", key: "testVal", value: int64(3)}}},
-		{testName: "Initializing gauge testVal", method: http.MethodPost, url: "/update/gauge/testVal/1", want_statusCode: http.StatusOK, want_kv: []kv{kv{typ: "gauge", key: "testVal", value: float64(1)}}},
-		{testName: "Setting value to existing gauge testVal", method: http.MethodPost, url: "/update/gauge/testVal/2", want_statusCode: http.StatusOK, want_kv: []kv{kv{typ: "gauge", key: "testVal", value: float64(2)}}},
+		{testName: "GET Request", method: http.MethodGet, url: "/update/counter/testVal/1", wantStatusCode: http.StatusBadRequest, wantKv: nil},
+		//{testName: "Without \"update\" prefix", method: http.MethodPost, url: "/counter/testVal/1", wantStatusCode: http.StatusNotFound, wantKv: nil},
+		{testName: "Incorrect type", method: http.MethodPost, url: "/update/countter/testVal/1", wantStatusCode: http.StatusBadRequest, wantKv: nil},
+		{testName: "Incorrect value", method: http.MethodPost, url: "/update/counter/testVal/f1", wantStatusCode: http.StatusBadRequest, wantKv: nil},
+		{testName: "No value", method: http.MethodPost, url: "/update/counter/testVal/", wantStatusCode: http.StatusBadRequest, wantKv: nil},
+		{testName: "No key", method: http.MethodPost, url: "/update/counter/", wantStatusCode: http.StatusNotFound, wantKv: nil},
+		{testName: "No type", method: http.MethodPost, url: "/update/", wantStatusCode: http.StatusNotFound, wantKv: nil},
+		{testName: "Initializing counter testVal", method: http.MethodPost, url: "/update/counter/testVal/1", wantStatusCode: http.StatusOK, wantKv: []kv{kv{typ: "counter", key: "testVal", value: int64(1)}}},
+		{testName: "Adding value to existing counter testVal", method: http.MethodPost, url: "/update/counter/testVal/2", wantStatusCode: http.StatusOK, wantKv: []kv{kv{typ: "counter", key: "testVal", value: int64(3)}}},
+		{testName: "Initializing gauge testVal", method: http.MethodPost, url: "/update/gauge/testVal/1", wantStatusCode: http.StatusOK, wantKv: []kv{kv{typ: "gauge", key: "testVal", value: float64(1)}}},
+		{testName: "Setting value to existing gauge testVal", method: http.MethodPost, url: "/update/gauge/testVal/2", wantStatusCode: http.StatusOK, wantKv: []kv{kv{typ: "gauge", key: "testVal", value: float64(2)}}},
 	}
 
 	db := storage.InitStorage()
-	updateMetrics.SetDataStorage(&db)
-	getMetric.SetDataStorage(&db)
+	updatemetrics.SetDataStorage(&db)
+	getmetric.SetDataStorage(&db)
 
 	srv := httptest.NewServer(Router())
 	defer srv.Close()
@@ -60,10 +58,11 @@ func TestIter2Server(t *testing.T) {
 			} else {
 				res, _ = srv.Client().Post(srv.URL+tt.url, "text/plain", nil)
 			}
+			defer res.Body.Close()
 
-			assert.Equal(t, tt.want_statusCode, res.StatusCode)
-			if tt.want_kv != nil {
-				for _, v := range tt.want_kv {
+			assert.Equal(t, tt.wantStatusCode, res.StatusCode)
+			if tt.wantKv != nil {
+				for _, v := range tt.wantKv {
 					val, _ := db.ReadData(v.typ, v.key)
 					assert.Equal(t, v.value, val)
 				}
@@ -99,9 +98,9 @@ func TestIter2Server(t *testing.T) {
 			defer res.Body.Close()
 			body, _ := io.ReadAll(res.Body)
 			fmt.Printf("%s\n", string(body))
-			assert.Equal(t, tt.want_statusCode, res.StatusCode)
-			if tt.want_kv != nil {
-				for _, v := range tt.want_kv {
+			assert.Equal(t, tt.wantStatusCode, res.StatusCode)
+			if tt.wantKv != nil {
+				for _, v := range tt.wantKv {
 					val, _ := db.ReadData(v.typ, v.key)
 					assert.Equal(t, v.value, val)
 				}
