@@ -50,26 +50,26 @@ func TestIter2Server(t *testing.T) {
 
 	for _, tt := range tests {
 
-		if t != nil {
-			t.Run(tt.testName, func(t *testing.T) {
+		//if t != nil {
+		t.Run(tt.testName, func(t *testing.T) {
 
-				var res *http.Response
+			var res *http.Response
 
-				if tt.method == http.MethodGet {
-					res, _ = srv.Client().Get(srv.URL + tt.url)
-				} else {
-					res, _ = srv.Client().Post(srv.URL+tt.url, "text/plain", nil)
+			if tt.method == http.MethodGet {
+				res, _ = srv.Client().Get(srv.URL + tt.url)
+			} else {
+				res, _ = srv.Client().Post(srv.URL+tt.url, "text/plain", nil)
+			}
+
+			assert.Equal(t, tt.want_statusCode, res.StatusCode)
+			if tt.want_kv != nil {
+				for _, v := range tt.want_kv {
+					val, _ := db.ReadData(v.typ, v.key)
+					assert.Equal(t, v.value, val)
 				}
-
-				assert.Equal(t, tt.want_statusCode, res.StatusCode)
-				if tt.want_kv != nil {
-					for _, v := range tt.want_kv {
-						val, _ := db.ReadData(v.typ, v.key)
-						assert.Equal(t, v.value, val)
-					}
-				}
-			})
-		} else {
+			}
+		})
+		/*} else {
 
 			//var res *http.Response
 
@@ -85,7 +85,7 @@ func TestIter2Server(t *testing.T) {
 
 			//println(&res.StatusCode)
 
-		}
+		}*/
 	}
 
 	/*	for _, tt := range tests {

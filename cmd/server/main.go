@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"net/http"
+	"os"
 	"yaprakticum-go-track2/internal/handlers/getMetrics"
 	"yaprakticum-go-track2/internal/handlers/middlware"
 	"yaprakticum-go-track2/internal/handlers/updateMetrics"
@@ -27,7 +28,12 @@ func Router() chi.Router {
 func main() {
 
 	endp := flag.String("a", ":8080", "Server endpoint address:port")
-	flag.Parse()
+
+	if val, exist := os.LookupEnv("ADDRESS"); exist {
+		*endp = val
+	} else {
+		flag.Parse()
+	}
 
 	dataStorage = storage.InitStorage()
 	updateMetrics.SetDataStorage(&dataStorage)

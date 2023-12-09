@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"os"
+	"strconv"
 	"time"
 	"yaprakticum-go-track2/internal/metricsPoll"
 )
@@ -12,6 +14,16 @@ func main() {
 	pollInterval := flag.Float64("p", 2, "pollInterval")
 	reportInterval := flag.Float64("r", 10, "reportInterval")
 	flag.Parse()
+
+	if val, exist := os.LookupEnv("ADDRESS"); exist {
+		*endp = val
+	}
+	if val, err := strconv.ParseFloat(os.Getenv("REPORT_INTERVAL"), 64); err != nil {
+		*reportInterval = val
+	}
+	if val, err := strconv.ParseFloat(os.Getenv("POLL_INTERVAL"), 64); err != nil {
+		*pollInterval = val
+	}
 
 	pollInterval_ := time.Duration(*pollInterval) * time.Second
 	reportInterval_ := time.Duration(*reportInterval) * time.Second
