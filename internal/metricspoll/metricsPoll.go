@@ -2,70 +2,41 @@ package metricspoll
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"net/http"
 	"runtime"
 )
 
 type metricsData struct {
-	name  string
 	typ   string
 	value string
 }
 
 type MetricsHandler struct {
-	metricsSlice []metricsData
-	counter      int64
-	client       http.Client
+	metricsMap map[string]metricsData
+	counter    int64
+	client     http.Client
 }
 
 func NewMetricsHandler(endp string) MetricsHandler {
 	srvEndp = endp
-	print(srvEndp)
+	log.Println(srvEndp)
 	return MetricsHandler{
-		metricsSlice: []metricsData{
-			{name: "Alloc", typ: "gauge", value: ""},
-			{name: "BuckHashSys", typ: "gauge", value: ""},
-			{name: "Frees", typ: "gauge", value: ""},
-			{name: "GCCPUFraction", typ: "gauge", value: ""},
-			{name: "GCSys", typ: "gauge", value: ""},
-			{name: "HeapAlloc", typ: "gauge", value: ""},
-			{name: "HeapIdle", typ: "gauge", value: ""},
-			{name: "HeapInuse", typ: "gauge", value: ""},
-			{name: "HeapObjects", typ: "gauge", value: ""},
-			{name: "HeapReleased", typ: "gauge", value: ""},
-			{name: "HeapSys", typ: "gauge", value: ""},
-			{name: "LastGC", typ: "gauge", value: ""},
-			{name: "Lookups", typ: "gauge", value: ""},
-			{name: "MCacheInuse", typ: "gauge", value: ""},
-			{name: "MCacheSys", typ: "gauge", value: ""},
-			{name: "MSpanInuse", typ: "gauge", value: ""},
-			{name: "MSpanSys", typ: "gauge", value: ""},
-			{name: "Mallocs", typ: "gauge", value: ""},
-			{name: "NextGC", typ: "gauge", value: ""},
-			{name: "NumForcedGC", typ: "gauge", value: ""},
-			{name: "NumGC", typ: "gauge", value: ""},
-			{name: "OtherSys", typ: "gauge", value: ""},
-			{name: "PauseTotalNs", typ: "gauge", value: ""},
-			{name: "StackInuse", typ: "gauge", value: ""},
-			{name: "StackSys", typ: "gauge", value: ""},
-			{name: "Sys", typ: "gauge", value: ""},
-			{name: "TotalAlloc", typ: "gauge", value: ""},
-			{name: "RandomValue", typ: "gauge", value: ""},
-			//{name: "PollCount", typ: "counter", value: ""},
-		},
+		metricsMap: make(map[string]metricsData),
 	}
 }
 
 func (ths MetricsHandler) SendData() {
-	for _, v := range ths.metricsSlice {
-		res, err := ths.client.Post("http://"+srvEndp+"/update/"+v.typ+"/"+v.name+"/"+v.value,
+	for k, v := range ths.metricsMap {
+		res, err := ths.client.Post("http://"+srvEndp+"/update/"+v.typ+"/"+k+"/"+v.value,
 			"text/plain",
 			nil)
-		res.Body.Close()
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
+			return
 		}
+		defer res.Body.Close()
 	}
 }
 
@@ -75,35 +46,35 @@ func (ths *MetricsHandler) RefreshData() {
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
 
-	ths.metricsSlice[0].value = fmt.Sprintf("%v", ms.Alloc)
-	ths.metricsSlice[1].value = fmt.Sprintf("%v", ms.BuckHashSys)
-	ths.metricsSlice[2].value = fmt.Sprintf("%v", ms.Frees)
-	ths.metricsSlice[3].value = fmt.Sprintf("%v", ms.GCCPUFraction)
-	ths.metricsSlice[4].value = fmt.Sprintf("%v", ms.GCSys)
-	ths.metricsSlice[5].value = fmt.Sprintf("%v", ms.HeapAlloc)
-	ths.metricsSlice[6].value = fmt.Sprintf("%v", ms.HeapIdle)
-	ths.metricsSlice[7].value = fmt.Sprintf("%v", ms.HeapInuse)
-	ths.metricsSlice[8].value = fmt.Sprintf("%v", ms.HeapObjects)
-	ths.metricsSlice[9].value = fmt.Sprintf("%v", ms.HeapReleased)
-	ths.metricsSlice[10].value = fmt.Sprintf("%v", ms.HeapSys)
-	ths.metricsSlice[11].value = fmt.Sprintf("%v", ms.LastGC)
-	ths.metricsSlice[12].value = fmt.Sprintf("%v", ms.Lookups)
-	ths.metricsSlice[13].value = fmt.Sprintf("%v", ms.MCacheInuse)
-	ths.metricsSlice[14].value = fmt.Sprintf("%v", ms.MCacheSys)
-	ths.metricsSlice[15].value = fmt.Sprintf("%v", ms.MSpanInuse)
-	ths.metricsSlice[16].value = fmt.Sprintf("%v", ms.MSpanSys)
-	ths.metricsSlice[17].value = fmt.Sprintf("%v", ms.Mallocs)
-	ths.metricsSlice[18].value = fmt.Sprintf("%v", ms.NextGC)
-	ths.metricsSlice[19].value = fmt.Sprintf("%v", ms.NumForcedGC)
-	ths.metricsSlice[20].value = fmt.Sprintf("%v", ms.NumGC)
-	ths.metricsSlice[21].value = fmt.Sprintf("%v", ms.OtherSys)
-	ths.metricsSlice[22].value = fmt.Sprintf("%v", ms.PauseTotalNs)
-	ths.metricsSlice[23].value = fmt.Sprintf("%v", ms.StackInuse)
-	ths.metricsSlice[24].value = fmt.Sprintf("%v", ms.StackSys)
-	ths.metricsSlice[25].value = fmt.Sprintf("%v", ms.Sys)
-	ths.metricsSlice[26].value = fmt.Sprintf("%v", ms.TotalAlloc)
-	ths.metricsSlice[27].value = fmt.Sprintf("%v", rand.Float64())
-	//ths.metricsSlice[28].value = fmt.Sprintf("%d", this.counter)
+	ths.metricsMap["Alloc"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.Alloc)}
+	ths.metricsMap["BuckHashSys"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.BuckHashSys)}
+	ths.metricsMap["Frees"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.Frees)}
+	ths.metricsMap["GCCPUFraction"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.GCCPUFraction)}
+	ths.metricsMap["GCSys"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.GCSys)}
+	ths.metricsMap["HeapAlloc"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.HeapAlloc)}
+	ths.metricsMap["HeapIdle"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.HeapIdle)}
+	ths.metricsMap["HeapInuse"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.HeapInuse)}
+	ths.metricsMap["HeapObjects"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.HeapObjects)}
+	ths.metricsMap["HeapReleased"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.HeapReleased)}
+	ths.metricsMap["HeapSys"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.HeapSys)}
+	ths.metricsMap["LastGC"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.LastGC)}
+	ths.metricsMap["Lookups"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.Lookups)}
+	ths.metricsMap["MCacheInuse"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.MCacheInuse)}
+	ths.metricsMap["MCacheSys"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.MCacheSys)}
+	ths.metricsMap["MSpanInuse"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.MSpanInuse)}
+	ths.metricsMap["MSpanSys"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.MSpanSys)}
+	ths.metricsMap["Mallocs"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.Mallocs)}
+	ths.metricsMap["NextGC"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.NextGC)}
+	ths.metricsMap["NumForcedGC"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.NumForcedGC)}
+	ths.metricsMap["NumGC"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.NumGC)}
+	ths.metricsMap["OtherSys"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.OtherSys)}
+	ths.metricsMap["PauseTotalNs"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.PauseTotalNs)}
+	ths.metricsMap["StackInuse"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.StackInuse)}
+	ths.metricsMap["StackSys"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.StackSys)}
+	ths.metricsMap["Sys"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.Sys)}
+	ths.metricsMap["TotalAlloc"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", ms.TotalAlloc)}
+	ths.metricsMap["RandomValue"] = metricsData{typ: "gauge", value: fmt.Sprintf("%v", rand.Float64())}
+	//ths.metricsMap[28].value = fmt.Sprintf("%d", this.counter)
 
 	res, err := ths.client.Post("http://"+srvEndp+"/update/counter/PollCount/1",
 		"text/plain",
