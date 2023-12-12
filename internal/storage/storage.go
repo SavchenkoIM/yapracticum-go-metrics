@@ -16,8 +16,8 @@ func InitStorage() MemStorage {
 }
 
 type MemStorage struct {
-	Gauges   metricFloat64
-	Counters metricInt64Sum
+	Gauges   *metricFloat64
+	Counters *metricInt64Sum
 }
 
 func (ths MemStorage) ReadData(typ string, key string) (interface{}, error) {
@@ -52,13 +52,13 @@ type metricFloat64 struct {
 	mu   sync.Mutex
 }
 
-func newMetricFloat64() metricFloat64 {
+func newMetricFloat64() *metricFloat64 {
 	var v metricFloat64
 	v.data = make(map[string]float64)
-	return v
+	return &v
 }
 
-func (ths metricFloat64) ReadData() map[string]float64 {
+func (ths *metricFloat64) ReadData() map[string]float64 {
 	return ths.data
 }
 
@@ -81,13 +81,13 @@ type metricInt64Sum struct {
 	mu   sync.Mutex
 }
 
-func newMetricInt64Sum() metricInt64Sum {
+func newMetricInt64Sum() *metricInt64Sum {
 	var v metricInt64Sum
 	v.data = make(map[string]int64)
-	return v
+	return &v
 }
 
-func (ths metricInt64Sum) ReadData() map[string]int64 {
+func (ths *metricInt64Sum) ReadData() map[string]int64 {
 	return ths.data
 }
 
