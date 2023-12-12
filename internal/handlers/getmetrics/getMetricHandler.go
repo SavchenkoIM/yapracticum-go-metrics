@@ -20,14 +20,16 @@ func GetAllMetricsHandler(res http.ResponseWriter, req *http.Request) {
 	res.Write([]byte("=========================\n"))
 	res.Write([]byte("COUNTERS:\n"))
 
-	for k, v := range dataStorage.Counters.ReadData() {
+	dta1, _ := dataStorage.Counters.ReadData()
+	for k, v := range dta1 {
 		res.Write([]byte(fmt.Sprintf("%s: %d\n", k, v)))
 	}
 
 	res.Write([]byte("=========================\n"))
 	res.Write([]byte("GAUGES:\n"))
 
-	for k, v := range dataStorage.Gauges.ReadData() {
+	dta2, _ := dataStorage.Gauges.ReadData()
+	for k, v := range dta2 {
 		res.Write([]byte(fmt.Sprintf("%s: %f\n", k, v)))
 	}
 }
@@ -37,17 +39,24 @@ func GetMetricHandler(res http.ResponseWriter, req *http.Request) {
 	typ := chi.URLParam(req, "type")
 	nam := chi.URLParam(req, "name")
 
-	value, err := dataStorage.ReadData(typ, nam)
-
-	if err != nil {
-		http.Error(res, err.Error(), http.StatusNotFound)
+	switch typ {
+	case "gauge":
+		value, err := dataStorage.Gauges.ReadData(nam)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusNotFound)
+			return
+		}
+		res.Write([]byte(strconv.FormatFloat(value[nam], 'f', -1, 64)))
+	case "counter":
+		value, err := dataStorage.Counters.ReadData(nam)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusNotFound)
+			return
+		}
+		res.Write([]byte(fmt.Sprintf("%d", value[nam])))
+	default:
+		http.Error(res, "Unknown type "+typ, http.StatusNotFound)
 		return
-	}
-
-	if typ == "counter" {
-		res.Write([]byte(fmt.Sprintf("%d", value)))
-	} else {
-		res.Write([]byte(strconv.FormatFloat(value.(float64), 'f', -1, 64)))
 	}
 
 }

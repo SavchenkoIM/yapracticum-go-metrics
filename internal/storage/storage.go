@@ -20,31 +20,6 @@ type MemStorage struct {
 	Counters *metricInt64Sum
 }
 
-func (ths MemStorage) ReadData(typ string, key string) (interface{}, error) {
-
-	switch typ {
-	case "counter":
-		val, exist := ths.Counters.data[key]
-		if exist {
-			return val, nil
-		}
-
-		return nil, errors.New("Key counters/" + key + " not exists")
-
-	case "gauge":
-		val, exist := ths.Gauges.data[key]
-		if exist {
-			return val, nil
-		}
-
-		return nil, errors.New("Key gauge/" + key + " not exists")
-
-	default:
-		return nil, errors.New("Unknown type " + typ)
-	}
-
-}
-
 // Float64
 
 type metricFloat64 struct {
@@ -58,8 +33,20 @@ func newMetricFloat64() *metricFloat64 {
 	return &v
 }
 
-func (ths *metricFloat64) ReadData() map[string]float64 {
-	return ths.data
+func (ths *metricFloat64) ReadData(keys ...string) (map[string]float64, error) {
+	switch len(keys) {
+	case 0:
+		return ths.data, nil
+	case 1:
+		key := keys[0]
+		val, exist := ths.data[key]
+		if exist {
+			return map[string]float64{key: val}, nil
+		}
+		return nil, errors.New("Key gauge/" + key + " not exists")
+	default:
+		return nil, errors.New("It is allowed to request only one key at a time")
+	}
 }
 
 func (ths *metricFloat64) WriteData(key string, value string) error {
@@ -87,8 +74,20 @@ func newMetricInt64Sum() *metricInt64Sum {
 	return &v
 }
 
-func (ths *metricInt64Sum) ReadData() map[string]int64 {
-	return ths.data
+func (ths *metricInt64Sum) ReadData(keys ...string) (map[string]int64, error) {
+	switch len(keys) {
+	case 0:
+		return ths.data, nil
+	case 1:
+		key := keys[0]
+		val, exist := ths.data[key]
+		if exist {
+			return map[string]int64{key: val}, nil
+		}
+		return nil, errors.New("Key gauge/" + key + " not exists")
+	default:
+		return nil, errors.New("It is allowed to request only one key at a time")
+	}
 }
 
 func (ths *metricInt64Sum) WriteData(key string, value string) error {
