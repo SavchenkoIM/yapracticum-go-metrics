@@ -2,8 +2,8 @@ package storage
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
+	"sync"
 )
 
 // Storage
@@ -27,16 +27,18 @@ func (ths MemStorage) ReadData(typ string, key string) (interface{}, error) {
 		val, exist := ths.Counters.data[key]
 		if exist {
 			return val, nil
-		} else {
-			return nil, errors.New("Key counters/" + key + " not exists")
 		}
+
+		return nil, errors.New("Key counters/" + key + " not exists")
+
 	case "gauge":
 		val, exist := ths.Gauges.data[key]
 		if exist {
 			return val, nil
-		} else {
-			return nil, errors.New("Key gauge/" + key + " not exists")
 		}
+
+		return nil, errors.New("Key gauge/" + key + " not exists")
+
 	default:
 		return nil, errors.New("Unknown type " + typ)
 	}
@@ -47,6 +49,7 @@ func (ths MemStorage) ReadData(typ string, key string) (interface{}, error) {
 
 type metricFloat64 struct {
 	data map[string]float64
+	mu   sync.Mutex
 }
 
 func newMetricFloat64() metricFloat64 {
@@ -63,13 +66,11 @@ func (ths metricFloat64) WriteData(key string, value string) error {
 	v, err := strconv.ParseFloat(value, 64)
 
 	if err == nil {
+		ths.mu.Lock()
 		ths.data[key] = v
+		ths.mu.Unlock()
 	}
 
-	v2, exist := ths.data[key]
-	if exist {
-		println("Value of " + key + " is " + fmt.Sprintf("%f", v2))
-	}
 	return err
 }
 
@@ -77,6 +78,7 @@ func (ths metricFloat64) WriteData(key string, value string) error {
 
 type metricInt64Sum struct {
 	data map[string]int64
+	mu   sync.Mutex
 }
 
 func newMetricInt64Sum() metricInt64Sum {
@@ -94,12 +96,10 @@ func (ths metricInt64Sum) WriteData(key string, value string) error {
 	v, err := strconv.ParseInt(value, 10, 64)
 
 	if err == nil {
+		ths.mu.Lock()
 		ths.data[key] += v
+		ths.mu.Unlock()
 	}
 
-	v2, exist := ths.data[key]
-	if exist {
-		println("Value of " + key + " is " + fmt.Sprintf("%d", v2))
-	}
 	return err
 }
