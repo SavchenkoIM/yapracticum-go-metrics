@@ -45,7 +45,7 @@ func (ths *metricFloat64) ReadData(keys ...string) (map[string]float64, error) {
 		}
 		return nil, errors.New("Key gauge/" + key + " not exists")
 	default:
-		return nil, errors.New("It is allowed to request only one key at a time")
+		return nil, errors.New("it is allowed to request only one key at a time")
 	}
 }
 
@@ -86,7 +86,7 @@ func (ths *metricInt64Sum) ReadData(keys ...string) (map[string]int64, error) {
 		}
 		return nil, errors.New("Key gauge/" + key + " not exists")
 	default:
-		return nil, errors.New("It is allowed to request only one key at a time")
+		return nil, errors.New("it is allowed to request only one key at a time")
 	}
 }
 
