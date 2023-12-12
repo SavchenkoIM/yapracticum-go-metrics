@@ -62,8 +62,16 @@ func TestIter2Server(t *testing.T) {
 
 			assert.Equal(t, tt.wantStatusCode, res.StatusCode)
 			for _, v := range tt.wantKv {
-				val, _ := db.ReadData(v.typ, v.key)
-				assert.Equal(t, v.value, val)
+
+				switch v.typ {
+				case "gauge":
+					val, _ := db.Gauges.ReadData(v.key)
+					assert.Equal(t, v.value, val[v.key])
+				case "counter":
+					val, _ := db.Counters.ReadData(v.key)
+					assert.Equal(t, v.value, val[v.key])
+				}
+
 			}
 		})
 	}
