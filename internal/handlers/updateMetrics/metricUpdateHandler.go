@@ -2,8 +2,9 @@ package updateMetrics
 
 import (
 	"net/http"
-	"storage"
-	"strings"
+	"yaprakticum-go-track2/internal/storage"
+
+	"github.com/go-chi/chi/v5"
 )
 
 var dataStorage *storage.MemStorage
@@ -13,36 +14,30 @@ func SetDataStorage(storage *storage.MemStorage) {
 }
 
 func MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodPost {
-		http.Error(res, "Server serves only POST requests", http.StatusBadRequest)
-		return
-	}
 
-	pathWoSlash, _ := strings.CutSuffix(req.URL.Path, "/")
-	pathWoSlash, _ = strings.CutPrefix(pathWoSlash, "/")
-	reqData := strings.Split(pathWoSlash, "/")
-	if len(reqData) < 2 {
-		http.Error(res, "Not enough args (No name)", http.StatusNotFound)
-		return
-	}
-	if len(reqData) < 3 {
-		http.Error(res, "Not enough args (No type)", http.StatusBadRequest)
-		return
-	}
+	typ := chi.URLParam(req, "type")
+	name := chi.URLParam(req, "name")
+	val := chi.URLParam(req, "value")
 
-	switch reqData[0] {
+	switch typ {
 	case "gauge":
-		if err := dataStorage.Gauges.WriteData(reqData[1], reqData[2]); err != nil {
+
+		if err := dataStorage.Gauges.WriteData(name, val); err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 			return
 		}
+
 	case "counter":
-		if err := dataStorage.Counters.WriteData(reqData[1], reqData[2]); err != nil {
+
+		if err := dataStorage.Counters.WriteData(name, val); err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 			return
 		}
+
 	default:
-		http.Error(res, "Unknown metric type", http.StatusBadRequest)
+
+		http.Error(res, "Unknown metric type: "+typ, http.StatusBadRequest)
 		return
 	}
+
 }
