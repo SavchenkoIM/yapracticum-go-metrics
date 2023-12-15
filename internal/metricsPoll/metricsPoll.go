@@ -19,7 +19,9 @@ type MetricsHandler struct {
 	client       http.Client
 }
 
-func NewMetricsHandler() MetricsHandler {
+func NewMetricsHandler(endp string) MetricsHandler {
+	srv_endp = endp
+
 	return MetricsHandler{
 		metricsSlice: []metricsData{
 			{name: "Alloc", typ: "gauge", value: ""},
@@ -57,7 +59,7 @@ func NewMetricsHandler() MetricsHandler {
 
 func (ths MetricsHandler) SendData() {
 	for _, v := range ths.metricsSlice {
-		_, err := ths.client.Post("http://localhost:8080/update/"+v.typ+"/"+v.name+"/"+v.value,
+		_, err := ths.client.Post("http://"+srv_endp+"/update/"+v.typ+"/"+v.name+"/"+v.value,
 			"text/plain",
 			nil)
 		if err != nil {
@@ -65,6 +67,8 @@ func (ths MetricsHandler) SendData() {
 		}
 	}
 }
+
+var srv_endp string
 
 func (ths *MetricsHandler) RefreshData() {
 	var ms runtime.MemStats
@@ -100,7 +104,7 @@ func (ths *MetricsHandler) RefreshData() {
 	ths.metricsSlice[27].value = fmt.Sprintf("%v", rand.Float64())
 	//ths.metricsSlice[28].value = fmt.Sprintf("%d", this.counter)
 
-	_, err := ths.client.Post("http://localhost:8080/update/counter/PollCount/1",
+	_, err := ths.client.Post("http://"+srv_endp+"/update/counter/PollCount/1",
 		"text/plain",
 		nil)
 	if err != nil {
