@@ -2,10 +2,11 @@ package main
 
 import (
 	"flag"
+	"log"
 	"net/http"
-	"yaprakticum-go-track2/internal/handlers/getMetrics"
-	"yaprakticum-go-track2/internal/handlers/middlware"
-	"yaprakticum-go-track2/internal/handlers/updateMetrics"
+	"os"
+	"yaprakticum-go-track2/internal/handlers/getmetrics"
+	"yaprakticum-go-track2/internal/handlers/updatemetrics"
 	"yaprakticum-go-track2/internal/storage"
 
 	"github.com/go-chi/chi/v5"
@@ -15,44 +16,58 @@ var dataStorage storage.MemStorage
 
 func Router() chi.Router {
 
-	mux := chi.NewRouter()
-	mux.Use(middlware.CkeckIfAllCorrect)
-	mux.Post("/update/{type}/{name}/{value}", updateMetrics.MetricUpdateHandler)
-	mux.Get("/value/{type}/{name}", getMetric.GetMetricHandler)
-	mux.Get("/", getMetric.GetAllMetricsHandler)
-	return mux
+	r := chi.NewRouter()
+	r.Route("/", func(r chi.Router) {
+		r.Get("/", getmetric.GetAllMetricsHandler)
+		r.Route("/update", func(r chi.Router) {
+			r.Post("/", func(res http.ResponseWriter, req *http.Request) {
+				http.Error(res, "Not enough args (No type)", http.StatusBadRequest)
+			})
+			r.Post("/{type}", func(res http.ResponseWriter, req *http.Request) {
+				http.Error(res, "Not enough args (No name)", http.StatusNotFound)
+			})
+			r.Post("/{type}/{name}", func(res http.ResponseWriter, req *http.Request) {
+				http.Error(res, "Not enough args (No value)", http.StatusBadRequest)
+			})
+			r.Post("/{type}/{name}/{value}", updatemetrics.MetricUpdateHandler)
 
+		})
+		r.Route("/value", func(r chi.Router) {
+			r.Get("/{type}/{name}", getmetric.GetMetricHandler)
+		})
+	})
+	return r
+
+}
+
+type srvEnvArgs struct {
+	endp string
+}
+
+func getSrvEnvArgs() srvEnvArgs {
+	var res srvEnvArgs
+	endp := flag.String("a", ":8080", "Server endpoint address:port")
+
+	if val, exist := os.LookupEnv("ADDRESS"); exist {
+		*endp = val
+	} else {
+		flag.Parse()
+	}
+
+	res.endp = *endp
+	return res
 }
 
 func main() {
 
-	endp := flag.String("a", ":8080", "Server endpoint address:port")
-	flag.Parse()
-
 	dataStorage = storage.InitStorage()
-	updateMetrics.SetDataStorage(&dataStorage)
-	getMetric.SetDataStorage(&dataStorage)
+	updatemetrics.SetDataStorage(&dataStorage)
+	getmetric.SetDataStorage(&dataStorage)
 
-	println("Server running at " + *endp)
-	if err := http.ListenAndServe(*endp, Router()); err != nil {
+	args := getSrvEnvArgs()
+
+	log.Println("Server running at " + args.endp)
+	if err := http.ListenAndServe(args.endp, Router()); err != nil {
 		panic(err)
 	}
 }
-
-/*mux.Post("/update/{type}/{name}/{value}", func(res http.ResponseWriter, req *http.Request) {
-	typ := chi.URLParam(req, "type")
-	println(typ)
-})*/
-
-//mux.Get("/update/", func(res http.ResponseWriter, req *http.Request) {
-//	http.Error(res, "Server serves only POST requests", http.StatusBadRequest)
-//})
-
-//mux := http.NewServeMux()
-//mux.Handle("/update/", http.StripPrefix("/update/", http.HandlerFunc(updateMetrics.MetricUpdateHandler)))
-
-/*mux := chi.NewRouter()
-mux.Use(middlware.CkeckIfAllCorrect)
-mux.Post("/update/{type}/{name}/{value}", updateMetrics.MetricUpdateHandler)
-mux.Get("/value/{type}/{name}", getMetric.GetMetricHandler)
-mux.Get("/", getMetric.GetAllMetricsHandler)*/
