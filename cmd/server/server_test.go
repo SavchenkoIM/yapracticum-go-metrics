@@ -33,10 +33,10 @@ func TestIter2Server(t *testing.T) {
 		{testName: "No value", method: http.MethodPost, url: "/update/counter/testVal", wantStatusCode: http.StatusBadRequest, wantKv: nil},
 		{testName: "No name", method: http.MethodPost, url: "/update/counter/", wantStatusCode: http.StatusNotFound, wantKv: nil},
 		{testName: "No type", method: http.MethodPost, url: "/update/", wantStatusCode: http.StatusBadRequest, wantKv: nil},
-		{testName: "Initializing counter testVal", method: http.MethodPost, url: "/update/counter/testVal/1", wantStatusCode: http.StatusOK, wantKv: []kv{kv{typ: "counter", key: "testVal", value: int64(1)}}},
-		{testName: "Adding value to existing counter testVal", method: http.MethodPost, url: "/update/counter/testVal/2", wantStatusCode: http.StatusOK, wantKv: []kv{kv{typ: "counter", key: "testVal", value: int64(3)}}},
-		{testName: "Initializing gauge testVal", method: http.MethodPost, url: "/update/gauge/testVal/1", wantStatusCode: http.StatusOK, wantKv: []kv{kv{typ: "gauge", key: "testVal", value: float64(1)}}},
-		{testName: "Setting value to existing gauge testVal", method: http.MethodPost, url: "/update/gauge/testVal/2", wantStatusCode: http.StatusOK, wantKv: []kv{kv{typ: "gauge", key: "testVal", value: float64(2)}}},
+		{testName: "Initializing counter testVal", method: http.MethodPost, url: "/update/counter/testVal/1", wantStatusCode: http.StatusOK, wantKv: []kv{{typ: "counter", key: "testVal", value: int64(1)}}},
+		{testName: "Adding value to existing counter testVal", method: http.MethodPost, url: "/update/counter/testVal/2", wantStatusCode: http.StatusOK, wantKv: []kv{{typ: "counter", key: "testVal", value: int64(3)}}},
+		{testName: "Initializing gauge testVal", method: http.MethodPost, url: "/update/gauge/testVal/1", wantStatusCode: http.StatusOK, wantKv: []kv{{typ: "gauge", key: "testVal", value: float64(1)}}},
+		{testName: "Setting value to existing gauge testVal", method: http.MethodPost, url: "/update/gauge/testVal/2", wantStatusCode: http.StatusOK, wantKv: []kv{{typ: "gauge", key: "testVal", value: float64(2)}}},
 	}
 
 	db := storage.InitStorage()

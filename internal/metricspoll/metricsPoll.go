@@ -27,7 +27,7 @@ func NewMetricsHandler(endp string) MetricsHandler {
 	}
 }
 
-func (ths MetricsHandler) SendData() {
+func (ths *MetricsHandler) SendData() {
 	for k, v := range ths.metricsMap {
 		res, err := ths.client.Post("http://"+srvEndp+"/update/"+v.typ+"/"+k+"/"+v.value,
 			"text/plain",
@@ -36,7 +36,7 @@ func (ths MetricsHandler) SendData() {
 			fmt.Printf("Error: %v\n", err)
 			return
 		}
-		defer res.Body.Close()
+		res.Body.Close()
 	}
 }
 
