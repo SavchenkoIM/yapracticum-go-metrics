@@ -2,10 +2,12 @@ package main
 
 import (
 	"flag"
+	"go.uber.org/zap"
 	"log"
 	"net/http"
 	"os"
 	"yaprakticum-go-track2/internal/handlers/getmetrics"
+	"yaprakticum-go-track2/internal/handlers/middleware"
 	"yaprakticum-go-track2/internal/handlers/updatemetrics"
 	"yaprakticum-go-track2/internal/storage"
 
@@ -17,6 +19,7 @@ var dataStorage storage.MemStorage
 func Router() chi.Router {
 
 	r := chi.NewRouter()
+	r.Use(middleware.WithLogging)
 	r.Route("/", func(r chi.Router) {
 		r.Get("/", getmetric.GetAllMetricsHandler)
 		r.Route("/update", func(r chi.Router) {
@@ -63,6 +66,11 @@ func main() {
 	dataStorage = storage.InitStorage()
 	updatemetrics.SetDataStorage(&dataStorage)
 	getmetric.SetDataStorage(&dataStorage)
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+	middleware.SetLogger(logger)
 
 	args := getSrvEnvArgs()
 
