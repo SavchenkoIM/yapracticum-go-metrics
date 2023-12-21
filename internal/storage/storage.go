@@ -31,13 +31,13 @@ func (ms *MemStorage) WriteData(metrics Metrics) (Metrics, error) {
 	switch metrics.MType {
 	case "gauge":
 		if metrics.Value == nil {
-			return metrics, errors.New("No Value data provided")
+			return metrics, errors.New("no Value data provided")
 		}
 		ms.Gauges.WriteDataPP(metrics.ID, *metrics.Value)
 		return metrics, nil
 	case "counter":
 		if metrics.Delta == nil {
-			return metrics, errors.New("No Value data provided")
+			return metrics, errors.New("no Value data provided")
 		}
 		ms.Counters.WriteDataPP(metrics.ID, *metrics.Delta)
 		vl := ms.Counters.data[metrics.ID]
