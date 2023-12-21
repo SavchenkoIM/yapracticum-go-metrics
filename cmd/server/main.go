@@ -23,9 +23,7 @@ func Router() chi.Router {
 	r.Route("/", func(r chi.Router) {
 		r.Get("/", getmetric.GetAllMetricsHandler)
 		r.Route("/update", func(r chi.Router) {
-			r.Post("/", func(res http.ResponseWriter, req *http.Request) {
-				http.Error(res, "Not enough args (No type)", http.StatusBadRequest)
-			})
+			r.Post("/", updatemetrics.MetricsUpdateHandlerREST)
 			r.Post("/{type}", func(res http.ResponseWriter, req *http.Request) {
 				http.Error(res, "Not enough args (No name)", http.StatusNotFound)
 			})
@@ -37,6 +35,7 @@ func Router() chi.Router {
 		})
 		r.Route("/value", func(r chi.Router) {
 			r.Get("/{type}/{name}", getmetric.GetMetricHandler)
+			r.Post("/", getmetric.GetMetricHandlerREST)
 		})
 	})
 	return r

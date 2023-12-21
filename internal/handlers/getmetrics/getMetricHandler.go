@@ -1,7 +1,9 @@
 package getmetric
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"yaprakticum-go-track2/internal/storage"
@@ -58,5 +60,34 @@ func GetMetricHandler(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "Unknown type "+typ, http.StatusNotFound)
 		return
 	}
+
+}
+
+func GetMetricHandlerREST(res http.ResponseWriter, req *http.Request) {
+
+	var dta storage.Metrics
+
+	body := make([]byte, req.ContentLength)
+	req.Body.Read(body)
+	req.Body.Close()
+
+	log.Println("GetMetrics: " + string(body))
+
+	err := json.Unmarshal(body, &dta)
+	if err != nil {
+		http.Error(res, "Error parsing JSON", http.StatusBadRequest)
+		return
+	}
+
+	dta2, err := dataStorage.ReadData(dta)
+
+	if err == nil {
+		resp, _ := json.MarshalIndent(dta2, "", "    ")
+		res.Header().Set("Content-Type", "application/json")
+		res.Write(resp)
+		return
+	}
+
+	http.Error(res, err.Error(), http.StatusNotFound)
 
 }
