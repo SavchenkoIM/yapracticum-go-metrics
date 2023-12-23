@@ -2,6 +2,7 @@ package metricspoll
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -44,11 +45,20 @@ func (ths *MetricsHandler) SendData() {
 			dta.Delta = &v.ctrValue
 		}
 
+		// Compress data
 		jm, _ := json.Marshal(dta)
+		var b bytes.Buffer
+		gzw := gzip.NewWriter(&b)
+		gzw.Write(jm)
+		gzw.Close()
 
-		res, err := ths.client.Post("http://"+srvEndp+"/update/",
-			"application/json",
-			bytes.NewBuffer(jm))
+		req, _ := http.NewRequest(http.MethodPost, "http://"+srvEndp+"/update/", &b)
+		req.Header.Set("Content-Encoding", "gzip")
+		req.Header.Set("Accept-Encoding", "gzip")
+		/*res, err := ths.client.Post("http://"+srvEndp+"/update/",
+		"application/json",
+		bytes.NewBuffer(jm))*/
+		res, err := ths.client.Do(req)
 
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)

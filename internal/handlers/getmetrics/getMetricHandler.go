@@ -3,7 +3,6 @@ package getmetric
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"yaprakticum-go-track2/internal/storage"
@@ -18,6 +17,8 @@ func SetDataStorage(storage *storage.MemStorage) {
 }
 
 func GetAllMetricsHandler(res http.ResponseWriter, req *http.Request) {
+
+	res.Header().Set("Content-Type", "text/html")
 
 	res.Write([]byte("=========================\n"))
 	res.Write([]byte("COUNTERS:\n"))
@@ -71,7 +72,7 @@ func GetMetricHandlerREST(res http.ResponseWriter, req *http.Request) {
 	req.Body.Read(body)
 	req.Body.Close()
 
-	log.Println("GetMetrics: " + string(body))
+	//log.Println("GetMetrics: " + string(body))
 
 	err := json.Unmarshal(body, &dta)
 	if err != nil {
