@@ -32,6 +32,20 @@ func NewMetricsHandler(endp string) MetricsHandler {
 	}
 }
 
+func compressGzip(b []byte) ([]byte, error) {
+	var bb bytes.Buffer
+	gz := gzip.NewWriter(&bb)
+	_, err := gz.Write(b)
+	if err != nil {
+		return nil, err
+	}
+	err = gz.Close()
+	if err != nil {
+		return nil, err
+	}
+	return bb.Bytes(), nil
+}
+
 func (ths *MetricsHandler) SendData() {
 	for k, v := range ths.metricsMap {
 
@@ -47,17 +61,12 @@ func (ths *MetricsHandler) SendData() {
 
 		// Compress data
 		jm, _ := json.Marshal(dta)
-		var b bytes.Buffer
-		gzw := gzip.NewWriter(&b)
-		gzw.Write(jm)
-		gzw.Close()
+		b, _ := compressGzip(jm)
+		bb := bytes.NewBuffer(b)
 
-		req, _ := http.NewRequest(http.MethodPost, "http://"+srvEndp+"/update/", &b)
+		req, _ := http.NewRequest(http.MethodPost, "http://"+srvEndp+"/update/", bb)
 		req.Header.Set("Content-Encoding", "gzip")
 		req.Header.Set("Accept-Encoding", "gzip")
-		/*res, err := ths.client.Post("http://"+srvEndp+"/update/",
-		"application/json",
-		bytes.NewBuffer(jm))*/
 		res, err := ths.client.Do(req)
 
 		if err != nil {
@@ -106,9 +115,13 @@ func (ths *MetricsHandler) RefreshData() {
 
 	v := int64(1)
 	jm, _ := json.Marshal(storage.Metrics{MType: "counter", Delta: &v, ID: "PollCount"})
-	res, err := ths.client.Post("http://"+srvEndp+"/update/",
-		"text/plain",
-		bytes.NewBuffer(jm))
+	b, _ := compressGzip(jm)
+	bb := bytes.NewBuffer(b)
+
+	req, _ := http.NewRequest(http.MethodPost, "http://"+srvEndp+"/update/", bb)
+	req.Header.Set("Content-Encoding", "gzip")
+	req.Header.Set("Accept-Encoding", "gzip")
+	res, err := ths.client.Do(req)
 
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)

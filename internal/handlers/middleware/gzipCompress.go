@@ -8,13 +8,21 @@ import (
 	"strings"
 )
 
-type customResponseWriter struct {
+type gzipResponseWriter struct {
 	http.ResponseWriter
-	w io.Writer
+	w *gzip.Writer
 }
 
-func (crw customResponseWriter) Write(b []byte) (int, error) {
-	return crw.w.Write(b)
+func (gzw gzipResponseWriter) Write(b []byte) (int, error) {
+	return gzw.w.Write(b)
+}
+
+func (gzw gzipResponseWriter) Close() error {
+	return gzw.w.Close()
+}
+
+func newGzipResponseWriter(w http.ResponseWriter) gzipResponseWriter {
+	return gzipResponseWriter{ResponseWriter: w, w: gzip.NewWriter(w)}
 }
 
 func GzipHandler(h http.Handler) http.Handler {
@@ -22,8 +30,6 @@ func GzipHandler(h http.Handler) http.Handler {
 
 		acceptGzip := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
 		encodedGzip := strings.Contains(r.Header.Get("Content-Encoding"), "gzip")
-
-		wh := w
 
 		if encodedGzip {
 			gr, _ := gzip.NewReader(r.Body)
@@ -37,13 +43,14 @@ func GzipHandler(h http.Handler) http.Handler {
 		}
 
 		if acceptGzip {
-			gz := gzip.NewWriter(w)
-			defer gz.Close()
-			wh = customResponseWriter{ResponseWriter: w, w: gz}
+			wh := newGzipResponseWriter(w)
+			defer wh.Close()
 			w.Header().Set("Content-Encoding", "gzip")
+			h.ServeHTTP(wh, r)
+			return
 		}
 
-		h.ServeHTTP(wh, r)
+		h.ServeHTTP(w, r)
 
 	})
 }
