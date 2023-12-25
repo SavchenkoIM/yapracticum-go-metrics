@@ -95,16 +95,13 @@ func main() {
 func catchSignal(server *http.Server, logger *zap.Logger) {
 
 	terminateSignals := make(chan os.Signal, 1)
-
 	signal.Notify(terminateSignals, syscall.SIGINT, syscall.SIGTERM)
 
-	for {
-		select {
-		case s := <-terminateSignals:
-			logger.Info("Got one of stop signals, shutting down server gracefully, SIGNAL NAME :" + s.String())
-			dataStorage.Dump()
-			server.Shutdown(context.Background())
-		}
-	}
+	//for {
+	s := <-terminateSignals
+	logger.Info("Got one of stop signals, shutting down server gracefully, SIGNAL NAME :" + s.String())
+	dataStorage.Dump()
+	server.Shutdown(context.Background())
+	//}
 
 }
