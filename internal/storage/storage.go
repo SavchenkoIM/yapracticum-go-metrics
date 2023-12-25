@@ -1,9 +1,13 @@
 package storage
 
 import (
+	"encoding/json"
 	"errors"
+	"go.uber.org/zap"
+	"os"
 	"strconv"
 	"sync"
+	"yaprakticum-go-track2/internal/config"
 )
 
 type Metrics struct {
@@ -13,28 +17,117 @@ type Metrics struct {
 	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 }
 
+type MetricsDB struct {
+	MetricsDB []Metrics `json:"metrics_db"`
+}
+
 // Storage
 
-func InitStorage() MemStorage {
+type MemStorage struct {
+	Gauges    *metricFloat64
+	Counters  *metricInt64Sum
+	dumpMutex sync.Mutex
+	syncWrite bool
+	fileName  string
+}
+
+func InitStorage(args config.ServerConfig, logger *zap.Logger) (*MemStorage, error) {
 	var ms MemStorage
 	ms.Counters = newMetricInt64Sum()
 	ms.Gauges = newMetricFloat64()
-	return ms
+	ms.syncWrite = args.StoreInterval == 0
+	ms.fileName = args.FileStoragePath
+
+	if args.Restore {
+		err := ms.Load()
+		if err != nil {
+			logger.Sugar().Infof("Unable to load data from file: %s", err.Error())
+		}
+	}
+
+	return &ms, nil
 }
 
-type MemStorage struct {
-	Gauges   *metricFloat64
-	Counters *metricInt64Sum
+func (ms *MemStorage) Close() error {
+	return ms.Dump()
 }
 
-func (ms *MemStorage) WriteData(metrics Metrics) (Metrics, error) {
+func (ms *MemStorage) Dump() error {
+	ms.dumpMutex.Lock()
+	defer ms.dumpMutex.Unlock()
+
+	mdb := MetricsDB{MetricsDB: make([]Metrics, 0)}
+	for k, v := range ms.Gauges.data {
+		v2 := v
+		mdb.MetricsDB = append(mdb.MetricsDB, Metrics{
+			ID:    k,
+			MType: "gauge",
+			Value: &v2,
+		})
+	}
+	for k, v := range ms.Counters.data {
+		v2 := v
+		mdb.MetricsDB = append(mdb.MetricsDB, Metrics{
+			ID:    k,
+			MType: "counter",
+			Delta: &v2,
+		})
+	}
+
+	jsn, err := json.MarshalIndent(mdb, "", "    ")
+	if err != nil {
+		return err
+	}
+
+	f, err := os.OpenFile(ms.fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.Write(jsn)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ms *MemStorage) Load() error {
+	data, err := os.ReadFile(ms.fileName)
+	if err != nil {
+		return err
+	}
+	mdb := MetricsDB{MetricsDB: make([]Metrics, 0)}
+	err = json.Unmarshal(data, &mdb)
+	if err != nil {
+		return err
+	}
+
+	for _, v := range mdb.MetricsDB {
+		switch v.MType {
+		case "counter":
+			ms.Counters.WriteDataPP(v.ID, *v.Delta)
+			break
+		case "gauge":
+			ms.Gauges.WriteDataPP(v.ID, *v.Value)
+			break
+		}
+	}
+
+	return nil
+}
+
+func (ms *MemStorage) WriteData(metrics Metrics) (rMetrics Metrics, rError error) {
+	rError = nil
+	rMetrics = metrics
+
 	switch metrics.MType {
 	case "gauge":
 		if metrics.Value == nil {
 			return metrics, errors.New("no Value data provided")
 		}
 		ms.Gauges.WriteDataPP(metrics.ID, *metrics.Value)
-		return metrics, nil
+		rMetrics = metrics
 	case "counter":
 		if metrics.Delta == nil {
 			return metrics, errors.New("no Value data provided")
@@ -42,10 +135,16 @@ func (ms *MemStorage) WriteData(metrics Metrics) (Metrics, error) {
 		ms.Counters.WriteDataPP(metrics.ID, *metrics.Delta)
 		vl := ms.Counters.data[metrics.ID]
 		metrics.Delta = &vl
-		return metrics, nil
+		rMetrics = metrics
 	default:
-		return metrics, errors.New("Unknown metric type: " + metrics.MType)
+		rError = errors.New("Unknown metric type: " + metrics.MType)
 	}
+
+	if ms.syncWrite {
+		ms.Dump()
+	}
+
+	return
 }
 
 func (ms *MemStorage) ReadData(metrics Metrics) (Metrics, error) {
