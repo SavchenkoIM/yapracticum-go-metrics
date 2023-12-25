@@ -70,10 +70,10 @@ func main() {
 	}
 
 	dataStorage, err = storage.InitStorage(args, logger)
-	defer dataStorage.Close()
 	if err != nil {
 		panic(err)
 	}
+	defer dataStorage.Close()
 	updatemetrics.SetDataStorage(dataStorage)
 
 	getmetric.SetDataStorage(dataStorage)
@@ -96,7 +96,7 @@ func catchSignal(server *http.Server, logger *zap.Logger) {
 
 	terminateSignals := make(chan os.Signal, 1)
 
-	signal.Notify(terminateSignals, syscall.SIGINT, syscall.SIGKILL, syscall.SIGTERM)
+	signal.Notify(terminateSignals, syscall.SIGINT, syscall.SIGTERM)
 
 	for {
 		select {

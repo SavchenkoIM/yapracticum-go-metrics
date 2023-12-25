@@ -79,7 +79,7 @@ func (ms *MemStorage) Dump() error {
 		return err
 	}
 
-	f, err := os.OpenFile(ms.fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 644)
+	f, err := os.OpenFile(ms.fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
@@ -107,10 +107,8 @@ func (ms *MemStorage) Load() error {
 		switch v.MType {
 		case "counter":
 			ms.Counters.WriteDataPP(v.ID, *v.Delta)
-			break
 		case "gauge":
 			ms.Gauges.WriteDataPP(v.ID, *v.Value)
-			break
 		}
 	}
 
