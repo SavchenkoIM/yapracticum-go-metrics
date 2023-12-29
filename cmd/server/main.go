@@ -1,25 +1,27 @@
 package main
 
 import (
-	"flag"
+	"context"
+	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
-	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
+	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/handlers/getmetrics"
 	"yaprakticum-go-track2/internal/handlers/middleware"
 	"yaprakticum-go-track2/internal/handlers/updatemetrics"
 	"yaprakticum-go-track2/internal/storage"
-
-	"github.com/go-chi/chi/v5"
 )
 
-var dataStorage storage.MemStorage
+var dataStorage *storage.MemStorage
 
 func Router() chi.Router {
 
 	r := chi.NewRouter()
-	r.Use(middleware.WithLogging, middleware.GzipHandler)
+	r.Use(middleware.GzipHandler, middleware.WithLogging)
 	r.Route("/", func(r chi.Router) {
 		r.Get("/", getmetric.GetAllMetricsHandler)
 		r.Route("/update", func(r chi.Router) {
@@ -42,39 +44,64 @@ func Router() chi.Router {
 
 }
 
-type srvEnvArgs struct {
-	endp string
-}
-
-func getSrvEnvArgs() srvEnvArgs {
-	var res srvEnvArgs
-	endp := flag.String("a", ":8080", "Server endpoint address:port")
-
-	if val, exist := os.LookupEnv("ADDRESS"); exist {
-		*endp = val
-	} else {
-		flag.Parse()
+func DumpDBFile(args config.ServerConfig, dataStorage *storage.MemStorage, logger *zap.Logger) {
+	dt := time.Now()
+	for {
+		if args.StoreInterval > 0 {
+			if time.Since(dt) >= args.StoreInterval {
+				dt = time.Now()
+				err := dataStorage.Dump()
+				if err != nil {
+					logger.Info(err.Error())
+				}
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
 	}
-
-	res.endp = *endp
-	return res
 }
 
 func main() {
 
-	dataStorage = storage.InitStorage()
-	updatemetrics.SetDataStorage(&dataStorage)
-	getmetric.SetDataStorage(&dataStorage)
+	cfg := config.ServerConfig{}
+	args := cfg.Load()
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		panic(err)
 	}
-	middleware.SetLogger(logger)
 
-	args := getSrvEnvArgs()
-
-	log.Println("Server running at " + args.endp)
-	if err := http.ListenAndServe(args.endp, Router()); err != nil {
+	dataStorage, err = storage.InitStorage(args, logger)
+	if err != nil {
 		panic(err)
 	}
+	defer dataStorage.Close()
+	updatemetrics.SetDataStorage(dataStorage)
+
+	getmetric.SetDataStorage(dataStorage)
+
+	middleware.SetLogger(logger)
+
+	go DumpDBFile(args, dataStorage, logger)
+
+	server := http.Server{Addr: args.Endp, Handler: Router()}
+
+	go catchSignal(&server, logger)
+
+	logger.Info("Server running at " + args.Endp)
+	if err := server.ListenAndServe(); err != nil {
+		panic(err)
+	}
+}
+
+func catchSignal(server *http.Server, logger *zap.Logger) {
+
+	terminateSignals := make(chan os.Signal, 1)
+	signal.Notify(terminateSignals, syscall.SIGINT, syscall.SIGTERM)
+
+	//for {
+	s := <-terminateSignals
+	logger.Info("Got one of stop signals, shutting down server gracefully, SIGNAL NAME :" + s.String())
+	dataStorage.Dump()
+	server.Shutdown(context.Background())
+	//}
+
 }

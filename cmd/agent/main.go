@@ -24,7 +24,6 @@ func getCliEnvArgs() cliEnvArgs {
 	if val, exist := os.LookupEnv("ADDRESS"); exist {
 		*endp = val
 	}
-
 	if _, exist := os.LookupEnv("REPORT_INTERVAL"); exist {
 		if val, err := strconv.ParseFloat(os.Getenv("REPORT_INTERVAL"), 64); err != nil {
 			*reportInterval = val

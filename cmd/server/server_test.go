@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/handlers/getmetrics"
 	"yaprakticum-go-track2/internal/handlers/middleware"
 	"yaprakticum-go-track2/internal/handlers/updatemetrics"
@@ -41,9 +42,10 @@ func TestIter2Server(t *testing.T) {
 		{testName: "Setting value to existing gauge testVal", method: http.MethodPost, url: "/update/gauge/testVal/2", wantStatusCode: http.StatusOK, wantKv: []kv{{typ: "gauge", key: "testVal", value: float64(2)}}},
 	}
 
-	db := storage.InitStorage()
-	updatemetrics.SetDataStorage(&db)
-	getmetric.SetDataStorage(&db)
+	z, _ := zap.NewDevelopment()
+	db, _ := storage.InitStorage(config.ServerConfig{}, z)
+	updatemetrics.SetDataStorage(db)
+	getmetric.SetDataStorage(db)
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		panic(err)

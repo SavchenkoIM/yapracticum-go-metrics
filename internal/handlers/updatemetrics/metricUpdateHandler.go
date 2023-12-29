@@ -40,6 +40,7 @@ func MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "Unknown metric type: "+typ, http.StatusBadRequest)
 		return
 	}
+
 }
 
 func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
