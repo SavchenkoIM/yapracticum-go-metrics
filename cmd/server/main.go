@@ -19,7 +19,7 @@ var dataStorage storage.MemStorage
 func Router() chi.Router {
 
 	r := chi.NewRouter()
-	r.Use(middleware.WithLogging)
+	r.Use(middleware.WithLogging, middleware.GzipHandler)
 	r.Route("/", func(r chi.Router) {
 		r.Get("/", getmetric.GetAllMetricsHandler)
 		r.Route("/update", func(r chi.Router) {

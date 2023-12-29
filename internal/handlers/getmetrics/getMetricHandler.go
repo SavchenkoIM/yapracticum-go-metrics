@@ -3,9 +3,9 @@ package getmetric
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"yaprakticum-go-track2/internal/storage"
 
 	"github.com/go-chi/chi/v5"
@@ -19,21 +19,28 @@ func SetDataStorage(storage *storage.MemStorage) {
 
 func GetAllMetricsHandler(res http.ResponseWriter, req *http.Request) {
 
-	res.Write([]byte("=========================\n"))
-	res.Write([]byte("COUNTERS:\n"))
+	text := strings.Builder{}
+
+	res.Header().Set("Content-Type", "text/html")
+
+	text.WriteString("=========================\n")
+	text.WriteString("COUNTERS:\n")
 
 	dta1, _ := dataStorage.Counters.ReadData()
 	for k, v := range dta1 {
-		res.Write([]byte(fmt.Sprintf("%s: %d\n", k, v)))
+		text.WriteString(fmt.Sprintf("%s: %d\n", k, v))
 	}
 
-	res.Write([]byte("=========================\n"))
-	res.Write([]byte("GAUGES:\n"))
+	text.WriteString("=========================\n")
+	text.WriteString("GAUGES:\n")
 
 	dta2, _ := dataStorage.Gauges.ReadData()
 	for k, v := range dta2 {
-		res.Write([]byte(fmt.Sprintf("%s: %f\n", k, v)))
+		text.WriteString(fmt.Sprintf("%s: %f\n", k, v))
 	}
+
+	txt := strings.Replace(text.String(), "\n", "</br>", -1)
+	res.Write([]byte(txt))
 }
 
 func GetMetricHandler(res http.ResponseWriter, req *http.Request) {
@@ -71,7 +78,7 @@ func GetMetricHandlerREST(res http.ResponseWriter, req *http.Request) {
 	req.Body.Read(body)
 	req.Body.Close()
 
-	log.Println("GetMetrics: " + string(body))
+	//log.Println("GetMetrics: " + string(body))
 
 	err := json.Unmarshal(body, &dta)
 	if err != nil {
