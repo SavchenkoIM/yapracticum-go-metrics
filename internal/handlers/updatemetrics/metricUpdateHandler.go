@@ -1,6 +1,7 @@
 package updatemetrics
 
 import (
+	"encoding/json"
 	"net/http"
 	"yaprakticum-go-track2/internal/storage"
 
@@ -39,5 +40,29 @@ func MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, "Unknown metric type: "+typ, http.StatusBadRequest)
 		return
 	}
+}
 
+func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
+	var dta storage.Metrics
+
+	body := make([]byte, req.ContentLength)
+	req.Body.Read(body)
+	req.Body.Close()
+
+	err := json.Unmarshal(body, &dta)
+	if err != nil {
+		http.Error(res, "Error parsing JSON", http.StatusBadRequest)
+		return
+	}
+
+	resp, err := dataStorage.WriteData(dta)
+	val, _ := json.MarshalIndent(resp, "", "    ")
+
+	if err == nil {
+		res.Header().Set("Content-Type", "application/json")
+		res.Write(val)
+		return
+	}
+
+	http.Error(res, err.Error(), http.StatusBadRequest)
 }

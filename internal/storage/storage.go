@@ -6,6 +6,13 @@ import (
 	"sync"
 )
 
+type Metrics struct {
+	ID    string   `json:"id"`              // имя метрики
+	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
+	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
+	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+}
+
 // Storage
 
 func InitStorage() MemStorage {
@@ -18,6 +25,48 @@ func InitStorage() MemStorage {
 type MemStorage struct {
 	Gauges   *metricFloat64
 	Counters *metricInt64Sum
+}
+
+func (ms *MemStorage) WriteData(metrics Metrics) (Metrics, error) {
+	switch metrics.MType {
+	case "gauge":
+		if metrics.Value == nil {
+			return metrics, errors.New("no Value data provided")
+		}
+		ms.Gauges.WriteDataPP(metrics.ID, *metrics.Value)
+		return metrics, nil
+	case "counter":
+		if metrics.Delta == nil {
+			return metrics, errors.New("no Value data provided")
+		}
+		ms.Counters.WriteDataPP(metrics.ID, *metrics.Delta)
+		vl := ms.Counters.data[metrics.ID]
+		metrics.Delta = &vl
+		return metrics, nil
+	default:
+		return metrics, errors.New("Unknown metric type: " + metrics.MType)
+	}
+}
+
+func (ms *MemStorage) ReadData(metrics Metrics) (Metrics, error) {
+	switch metrics.MType {
+	case "gauge":
+		vl, exist := ms.Gauges.data[metrics.ID]
+		if exist {
+			metrics.Value = &vl
+			return metrics, nil
+		}
+		return metrics, errors.New("Key gauge/" + metrics.ID + " not exists")
+	case "counter":
+		vl, exist := ms.Counters.data[metrics.ID]
+		if exist {
+			metrics.Delta = &vl
+			return metrics, nil
+		}
+		return metrics, errors.New("Key counter/" + metrics.ID + " not exists")
+	default:
+		return metrics, errors.New("Unknown metric type: " + metrics.MType)
+	}
 }
 
 // Float64
@@ -61,6 +110,12 @@ func (ths *metricFloat64) WriteData(key string, value string) error {
 	return err
 }
 
+func (ths *metricFloat64) WriteDataPP(key string, value float64) {
+	ths.mu.Lock()
+	ths.data[key] = value
+	defer ths.mu.Unlock()
+}
+
 // Int64 Cumulative
 
 type metricInt64Sum struct {
@@ -101,4 +156,10 @@ func (ths *metricInt64Sum) WriteData(key string, value string) error {
 	}
 
 	return err
+}
+
+func (ths *metricInt64Sum) WriteDataPP(key string, value int64) {
+	ths.mu.Lock()
+	ths.data[key] += value
+	defer ths.mu.Unlock()
 }

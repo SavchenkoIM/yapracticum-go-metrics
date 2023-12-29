@@ -44,15 +44,15 @@ func getCliEnvArgs() cliEnvArgs {
 
 func runPoll(interval time.Duration, mh metricspoll.MetricsHandler) {
 	for {
-		time.Sleep(interval)
 		mh.RefreshData()
+		time.Sleep(interval)
 	}
 }
 
 func runReport(interval time.Duration, mh metricspoll.MetricsHandler) {
 	for {
-		time.Sleep(interval)
 		mh.SendData()
+		time.Sleep(interval)
 	}
 }
 
