@@ -1,10 +1,12 @@
 package main
 
 import (
+	"go.uber.org/zap"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"yaprakticum-go-track2/internal/handlers/getmetrics"
+	"yaprakticum-go-track2/internal/handlers/middleware"
 	"yaprakticum-go-track2/internal/handlers/updatemetrics"
 	"yaprakticum-go-track2/internal/storage"
 
@@ -42,6 +44,11 @@ func TestIter2Server(t *testing.T) {
 	db := storage.InitStorage()
 	updatemetrics.SetDataStorage(&db)
 	getmetric.SetDataStorage(&db)
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+	middleware.SetLogger(logger)
 
 	srv := httptest.NewServer(Router())
 	defer srv.Close()
