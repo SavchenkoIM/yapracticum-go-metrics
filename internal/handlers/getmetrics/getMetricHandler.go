@@ -7,18 +7,19 @@ import (
 	"strconv"
 	"strings"
 	"yaprakticum-go-track2/internal/storage"
+	"yaprakticum-go-track2/internal/storage/storagecommons"
 
 	"github.com/go-chi/chi/v5"
 )
 
-var dataStorage *storage.MemStorage
+var dataStorage *storage.Storage
 
-func SetDataStorage(storage *storage.MemStorage) {
+func SetDataStorage(storage *storage.Storage) {
 	dataStorage = storage
 }
 
 func PingHandler(res http.ResponseWriter, req *http.Request) {
-	if err := dataStorage.PingDB(); err != nil {
+	if err := dataStorage.Ping(); err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
 	}
 	res.WriteHeader(http.StatusOK)
@@ -33,7 +34,7 @@ func GetAllMetricsHandler(res http.ResponseWriter, req *http.Request) {
 	text.WriteString("=========================\n")
 	text.WriteString("COUNTERS:\n")
 
-	dta1, _ := dataStorage.Counters.ReadData()
+	dta1, _ := dataStorage.GetCounters().ReadData()
 	for k, v := range dta1 {
 		text.WriteString(fmt.Sprintf("%s: %d\n", k, v))
 	}
@@ -41,7 +42,7 @@ func GetAllMetricsHandler(res http.ResponseWriter, req *http.Request) {
 	text.WriteString("=========================\n")
 	text.WriteString("GAUGES:\n")
 
-	dta2, _ := dataStorage.Gauges.ReadData()
+	dta2, _ := dataStorage.GetGauges().ReadData()
 	for k, v := range dta2 {
 		text.WriteString(fmt.Sprintf("%s: %f\n", k, v))
 	}
@@ -57,14 +58,14 @@ func GetMetricHandler(res http.ResponseWriter, req *http.Request) {
 
 	switch typ {
 	case "gauge":
-		value, err := dataStorage.Gauges.ReadData(nam)
+		value, err := dataStorage.GetGauges().ReadData(nam)
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusNotFound)
 			return
 		}
 		res.Write([]byte(strconv.FormatFloat(value[nam], 'f', -1, 64)))
 	case "counter":
-		value, err := dataStorage.Counters.ReadData(nam)
+		value, err := dataStorage.GetCounters().ReadData(nam)
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusNotFound)
 			return
@@ -79,7 +80,7 @@ func GetMetricHandler(res http.ResponseWriter, req *http.Request) {
 
 func GetMetricHandlerREST(res http.ResponseWriter, req *http.Request) {
 
-	var dta storage.Metrics
+	var dta storagecommons.Metrics
 
 	body := make([]byte, req.ContentLength)
 	req.Body.Read(body)
