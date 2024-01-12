@@ -74,10 +74,10 @@ func TestIter2Server(t *testing.T) {
 
 				switch v.typ {
 				case "gauge":
-					val, _ := db.Gauges.ReadData(v.key)
+					val, _ := db.GetGauges().ReadData(v.key)
 					assert.Equal(t, v.value, val[v.key])
 				case "counter":
-					val, _ := db.Counters.ReadData(v.key)
+					val, _ := db.GetCounters().ReadData(v.key)
 					assert.Equal(t, v.value, val[v.key])
 				}
 
