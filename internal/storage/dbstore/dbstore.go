@@ -25,6 +25,8 @@ type DBStore struct {
 func New(args config.ServerConfig, logger *zap.Logger) (*DBStore, error) {
 	var ms DBStore
 
+	logger.Sugar().Infof("Creating database storage...")
+
 	var err error
 	ms.db, err = sql.Open("pgx", args.ConnString)
 

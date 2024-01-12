@@ -22,6 +22,8 @@ type FileStore struct {
 func New(args config.ServerConfig, logger *zap.Logger) (*FileStore, error) {
 	var ms FileStore
 
+	logger.Sugar().Infof("Creating memory/file storage...")
+
 	ms.syncWrite = args.StoreInterval == 0
 	ms.fileName = args.FileStoragePath
 
