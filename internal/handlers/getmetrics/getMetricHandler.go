@@ -86,8 +86,6 @@ func GetMetricHandlerREST(res http.ResponseWriter, req *http.Request) {
 	req.Body.Read(body)
 	req.Body.Close()
 
-	//log.Println("GetMetrics: " + string(body))
-
 	err := json.Unmarshal(body, &dta)
 	if err != nil {
 		http.Error(res, "Error parsing JSON", http.StatusBadRequest)
@@ -100,6 +98,7 @@ func GetMetricHandlerREST(res http.ResponseWriter, req *http.Request) {
 		resp, _ := json.MarshalIndent(dta2, "", "    ")
 		res.Header().Set("Content-Type", "application/json")
 		res.Write(resp)
+		//fmt.Println("GetMetrics: " + string(resp))
 		return
 	}
 

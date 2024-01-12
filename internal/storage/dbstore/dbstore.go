@@ -56,14 +56,13 @@ func New(args config.ServerConfig, logger *zap.Logger) (*DBStore, error) {
 // Float64
 
 type MetricFloat64 struct {
-	data map[string]float64
-	mu   sync.Mutex
-	db   *sql.DB
+	mu sync.Mutex
+	db *sql.DB
 }
 
 func NewMetricFloat64() *MetricFloat64 {
 	var v MetricFloat64
-	v.data = make(map[string]float64)
+	//v.data = make(map[string]float64)
 	return &v
 }
 
@@ -193,14 +192,12 @@ func (ths *MetricFloat64) WriteDataPP(key string, value float64) error {
 // Int64 Cumulative
 
 type MetricInt64Sum struct {
-	data map[string]int64
-	mu   sync.Mutex
-	db   *sql.DB
+	mu sync.Mutex
+	db *sql.DB
 }
 
 func NewMetricInt64Sum() *MetricInt64Sum {
 	var v MetricInt64Sum
-	v.data = make(map[string]int64)
 	return &v
 }
 
@@ -337,73 +334,10 @@ func (ths *MetricInt64Sum) WriteDataPP(key string, value int64) error {
 
 func (ms *DBStore) Dump() error {
 
-	/*
-		mdb := storagecommons.MetricsDB{MetricsDB: make([]storagecommons.Metrics, 0)}
-
-		data, err := ms.Gauges.ReadData()
-		if err != nil {
-			return err
-		}
-		for k, v := range data {
-			v2 := v
-			mdb.MetricsDB = append(mdb.MetricsDB, storagecommons.Metrics{
-				ID:    k,
-				MType: "gauge",
-				Value: &v2,
-			})
-		}
-
-		data2, err := ms.Counters.ReadData()
-		if err != nil {
-			return err
-		}
-		for k, v := range data2 {
-			v2 := v
-			mdb.MetricsDB = append(mdb.MetricsDB, storagecommons.Metrics{
-				ID:    k,
-				MType: "counter",
-				Delta: &v2,
-			})
-		}
-
-		jsn, err := json.MarshalIndent(mdb, "", "    ")
-		if err != nil {
-			return err
-		}
-
-		f, err := os.OpenFile(ms.fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		_, err = f.Write(jsn)
-		if err != nil {
-			return err
-		}
-	*/
 	return nil
 }
 
 func (ms *DBStore) Load() error {
-
-	/*data, err := os.ReadFile(ms.fileName)
-	if err != nil {
-		return err
-	}
-	mdb := storagecommons.MetricsDB{MetricsDB: make([]storagecommons.Metrics, 0)}
-	err = json.Unmarshal(data, &mdb)
-	if err != nil {
-		return err
-	}
-
-	for _, v := range mdb.MetricsDB {
-		switch v.MType {
-		case "counter":
-			ms.Counters.WriteDataPP(v.ID, *v.Delta)
-		case "gauge":
-			ms.Gauges.WriteDataPP(v.ID, *v.Value)
-		}
-	}*/
 
 	return nil
 }

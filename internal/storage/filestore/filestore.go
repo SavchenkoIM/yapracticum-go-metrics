@@ -127,6 +127,8 @@ func (ths *MetricInt64Sum) WriteData(key string, value string) error {
 		defer ths.mu.Unlock()
 	}
 
+	//fmt.Printf("WriteData %s: %s = %d\n", key, value, ths.data[key])
+
 	return err
 }
 
@@ -134,6 +136,9 @@ func (ths *MetricInt64Sum) WriteDataPP(key string, value int64) error {
 	ths.mu.Lock()
 	ths.data[key] += value
 	defer ths.mu.Unlock()
+
+	//fmt.Printf("WriteDataPP %s: %d = %d\n", key, value, ths.data[key])
+
 	return nil
 }
 

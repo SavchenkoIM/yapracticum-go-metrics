@@ -26,13 +26,6 @@ func InitStorage(args config.ServerConfig, logger *zap.Logger) (*Storage, error)
 		dbs, _ := dbstore.New(args, logger)
 		ms.Storager = dbs
 	}
-
-	if args.Restore {
-		err := ms.Load()
-		if err != nil {
-			logger.Sugar().Infof("Unable to load data from file: %s", err.Error())
-		}
-	}
-
+	
 	return &ms, nil
 }
