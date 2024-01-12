@@ -113,6 +113,9 @@ func (ths *MetricFloat64) getValueDB(keys ...string) (map[string]float64, error)
 	if err != nil {
 		return nil, err
 	}
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
 
 	var (
 		key string
@@ -124,6 +127,10 @@ func (ths *MetricFloat64) getValueDB(keys ...string) (map[string]float64, error)
 			return nil, err
 		}
 		res[key] = val
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, err
 	}
 
 	return res, nil
@@ -246,6 +253,9 @@ func (ths *MetricInt64Sum) getValueDB(keys ...string) (map[string]int64, error) 
 	if err != nil {
 		return nil, err
 	}
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
 
 	var (
 		key string
@@ -257,6 +267,10 @@ func (ths *MetricInt64Sum) getValueDB(keys ...string) (map[string]int64, error) 
 			return nil, err
 		}
 		res[key] = val
+	}
+	err = rows.Close()
+	if err != nil {
+		return nil, err
 	}
 
 	return res, nil
