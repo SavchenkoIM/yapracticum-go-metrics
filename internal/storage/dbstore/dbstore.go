@@ -99,18 +99,14 @@ func (ths *MetricFloat64) getValueDB(keys ...string) (map[string]float64, error)
 		ks = append(ks, v)
 	}
 
+	syms := map[bool]rune{true: ',', false: ')'}
 	var query string
 	if len(keys) == 0 {
 		query = "SELECT * FROM \"gauges\""
 	} else {
 		query = "SELECT * FROM \"gauges\" WHERE \"Key\" IN ("
 		for i := range keys {
-			query += "$" + strconv.Itoa(i+1)
-			if i < len(keys)-1 {
-				query += ","
-			} else {
-				query += ")"
-			}
+			query += fmt.Sprintf("$%d%c", i+1, syms[i < len(keys)-1])
 		}
 	}
 
@@ -250,18 +246,14 @@ func (ths *MetricInt64Sum) getValueDB(keys ...string) (map[string]int64, error) 
 		ks = append(ks, v)
 	}
 
+	syms := map[bool]rune{true: ',', false: ')'}
 	var query string
 	if len(keys) == 0 {
 		query = "SELECT * FROM \"counters\""
 	} else {
 		query = "SELECT * FROM \"counters\" WHERE \"Key\" IN ("
 		for i := range keys {
-			query += "$" + strconv.Itoa(i+1)
-			if i < len(keys)-1 {
-				query += ","
-			} else {
-				query += ")"
-			}
+			query += fmt.Sprintf("$%d%c", i+1, syms[i < len(keys)-1])
 		}
 	}
 
@@ -363,6 +355,14 @@ func (ms *DBStore) Load() error {
 }
 
 func (ms *DBStore) WriteDataMulty(metrics storagecommons.MetricsDB) error {
+
+	/*
+		Не хочу писать пакетный INSERT, так как пакетный запрос от клиента может включать в себя
+		как counter'ы, так и gauge. Неочевидно, как с этим лучше работать.
+		Зато в getValueDB у меня реализован пакетный SELECT IN с переменным количеством аргументов,
+		так что этот инструментарий в database/sql я применять научился
+	*/
+
 	for _, record := range metrics.MetricsDB {
 		_, err := ms.WriteData(record)
 		if err != nil {
