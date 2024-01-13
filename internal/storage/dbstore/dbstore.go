@@ -104,7 +104,7 @@ func (ths *MetricFloat64) getValueDB(keys ...string) (map[string]float64, error)
 		query = "SELECT * FROM \"gauges\""
 	} else {
 		query = "SELECT * FROM \"gauges\" WHERE \"Key\" IN ("
-		for i, _ := range keys {
+		for i := range keys {
 			query += "$" + strconv.Itoa(i+1)
 			if i < len(keys)-1 {
 				query += ","
@@ -255,7 +255,7 @@ func (ths *MetricInt64Sum) getValueDB(keys ...string) (map[string]int64, error) 
 		query = "SELECT * FROM \"counters\""
 	} else {
 		query = "SELECT * FROM \"counters\" WHERE \"Key\" IN ("
-		for i, _ := range keys {
+		for i := range keys {
 			query += "$" + strconv.Itoa(i+1)
 			if i < len(keys)-1 {
 				query += ","
