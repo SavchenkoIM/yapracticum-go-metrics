@@ -81,10 +81,11 @@ func (ths *MetricFloat64) createTable() error {
 
 func (ths *MetricFloat64) applyValueDB(key string, value float64) error {
 
-	query := "INSERT INTO \"gauges\" (\"Key\", \"Value\") VALUES ('" + key + "'," + fmt.Sprintf("%f", value) + ")"
-	query += " ON CONFLICT (\"Key\") DO UPDATE SET \"Value\" = EXCLUDED.\"Value\""
-	print(query)
-	_, err := ths.db.Exec(query)
+	/*query := "INSERT INTO \"gauges\" (\"Key\", \"Value\") VALUES ('" + key + "'," + fmt.Sprintf("%f", value) + ")"
+	query += " ON CONFLICT (\"Key\") DO UPDATE SET \"Value\" = EXCLUDED.\"Value\""*/
+	query := "INSERT INTO \"gauges\" (\"Key\", \"Value\") VALUES ($1, $2) ON CONFLICT (\"Key\") DO UPDATE SET \"Value\" = EXCLUDED.\"Value\""
+
+	_, err := ths.db.Exec(query, key, value)
 	if err != nil {
 		return err
 	}
@@ -93,13 +94,18 @@ func (ths *MetricFloat64) applyValueDB(key string, value float64) error {
 
 func (ths *MetricFloat64) getValueDB(keys ...string) (map[string]float64, error) {
 
+	ks := make([]any, 0)
+	for _, v := range keys {
+		ks = append(ks, v)
+	}
+
 	var query string
 	if len(keys) == 0 {
 		query = "SELECT * FROM \"gauges\""
 	} else {
 		query = "SELECT * FROM \"gauges\" WHERE \"Key\" IN ("
-		for i, val := range keys {
-			query += ("'" + val + "'")
+		for i, _ := range keys {
+			query += "$" + strconv.Itoa(i+1)
 			if i < len(keys)-1 {
 				query += ","
 			} else {
@@ -110,7 +116,8 @@ func (ths *MetricFloat64) getValueDB(keys ...string) (map[string]float64, error)
 
 	res := make(map[string]float64)
 
-	rows, err := ths.db.Query(query)
+	rows, err := ths.db.Query(query, ks...)
+
 	if err != nil {
 		return nil, err
 	}
@@ -215,12 +222,19 @@ func (ths *MetricInt64Sum) createTable() error {
 
 func (ths *MetricInt64Sum) applyValueDB(key string, value int64) error {
 
-	query := "INSERT INTO \"counters\" (\"Key\", \"Value\") VALUES ('" + key + "'," + strconv.Itoa(int(value)) + ")"
-	_, err := ths.db.Exec(query)
+	// Somewhat doesn't work as expectetd (Value changes only at initial and second update
+	/*query := "INSERT INTO \"counters\" (\"Key\", \"Value\") VALUES ($1, $2) ON CONFLICT (\"Key\") DO UPDATE SET \"Value\" = \"Value\" + EXCLUDED.\"Value\""
+	_, err := ths.db.Exec(query, key, value)
+	if err != nil {
+		return err
+	}*/
+
+	query := "INSERT INTO \"counters\" (\"Key\", \"Value\") VALUES ($1, $2)"
+	_, err := ths.db.Exec(query, key, value)
 	if err != nil {
 		// Looks like this counter already exist, try UPDATE
-		query = "UPDATE \"counters\" SET \"Value\" = \"Value\" + " + strconv.Itoa(int(value)) + " WHERE \"Key\" = '" + key + "'"
-		_, err = ths.db.Exec(query)
+		query = "UPDATE \"counters\" SET \"Value\" = \"Value\" + $2 WHERE \"Key\" = $1"
+		_, err = ths.db.Exec(query, key, value)
 		if err != nil {
 			return err
 		}
@@ -231,13 +245,18 @@ func (ths *MetricInt64Sum) applyValueDB(key string, value int64) error {
 
 func (ths *MetricInt64Sum) getValueDB(keys ...string) (map[string]int64, error) {
 
+	ks := make([]any, 0)
+	for _, v := range keys {
+		ks = append(ks, v)
+	}
+
 	var query string
 	if len(keys) == 0 {
 		query = "SELECT * FROM \"counters\""
 	} else {
 		query = "SELECT * FROM \"counters\" WHERE \"Key\" IN ("
-		for i, val := range keys {
-			query += ("'" + val + "'")
+		for i, _ := range keys {
+			query += "$" + strconv.Itoa(i+1)
 			if i < len(keys)-1 {
 				query += ","
 			} else {
@@ -248,7 +267,8 @@ func (ths *MetricInt64Sum) getValueDB(keys ...string) (map[string]int64, error) 
 
 	res := make(map[string]int64)
 
-	rows, err := ths.db.Query(query)
+	rows, err := ths.db.Query(query, ks...)
+
 	if err != nil {
 		return nil, err
 	}
