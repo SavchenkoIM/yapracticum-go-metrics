@@ -217,6 +217,16 @@ func (ms *FileStore) Load() error {
 	return nil
 }
 
+func (ms *FileStore) WriteDataMulty(metrics storagecommons.MetricsDB) error {
+	for _, record := range metrics.MetricsDB {
+		_, err := ms.WriteData(record)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (ms *FileStore) WriteData(metrics storagecommons.Metrics) (rMetrics storagecommons.Metrics, rError error) {
 	rError = nil
 	rMetrics = metrics

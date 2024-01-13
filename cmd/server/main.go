@@ -24,6 +24,9 @@ func Router() chi.Router {
 	r.Use(middleware.GzipHandler, middleware.WithLogging)
 	r.Route("/", func(r chi.Router) {
 		r.Get("/", getmetric.GetAllMetricsHandler)
+		r.Route("/updates", func(r chi.Router) {
+			r.Post("/", updatemetrics.MultiMetricsUpdateHandlerREST)
+		})
 		r.Route("/update", func(r chi.Router) {
 			r.Post("/", updatemetrics.MetricsUpdateHandlerREST)
 			r.Post("/{type}", func(res http.ResponseWriter, req *http.Request) {

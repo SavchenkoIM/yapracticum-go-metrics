@@ -68,3 +68,25 @@ func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 
 	http.Error(res, err.Error(), http.StatusBadRequest)
 }
+
+func MultiMetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
+	var dta storagecommons.MetricsDB
+
+	body := make([]byte, req.ContentLength)
+	req.Body.Read(body)
+	req.Body.Close()
+
+	err := json.Unmarshal(body, &dta.MetricsDB)
+	if err != nil {
+		http.Error(res, "Error parsing JSON", http.StatusBadRequest)
+		return
+	}
+
+	err = dataStorage.WriteDataMulty(dta)
+
+	if err == nil {
+		return
+	}
+
+	http.Error(res, err.Error(), http.StatusBadRequest)
+}

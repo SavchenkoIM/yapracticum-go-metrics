@@ -47,34 +47,38 @@ func compressGzip(b []byte) ([]byte, error) {
 }
 
 func (ths *MetricsHandler) SendData() {
+	var dta storagecommons.MetricsDB
+
 	for k, v := range ths.metricsMap {
 
-		var dta storagecommons.Metrics
-		dta.MType = v.typ
-		dta.ID = k
-		switch dta.MType {
+		var dta_ storagecommons.Metrics
+		dta_.MType = v.typ
+		dta_.ID = k
+		switch dta_.MType {
 		case "gauge":
-			dta.Value = &v.value
+			dta_.Value = &v.value
 		case "counter":
-			dta.Delta = &v.ctrValue
+			dta_.Delta = &v.ctrValue
 		}
 
-		// Compress data
-		jm, _ := json.Marshal(dta)
-		b, _ := compressGzip(jm)
-		bb := bytes.NewBuffer(b)
-
-		req, _ := http.NewRequest(http.MethodPost, "http://"+srvEndp+"/update/", bb)
-		req.Header.Set("Content-Encoding", "gzip")
-		req.Header.Set("Accept-Encoding", "gzip")
-		res, err := ths.client.Do(req)
-
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			return
-		}
-		res.Body.Close()
+		dta.MetricsDB = append(dta.MetricsDB, dta_)
 	}
+
+	// Compress data
+	jm, _ := json.Marshal(dta.MetricsDB)
+	b, _ := compressGzip(jm)
+	bb := bytes.NewBuffer(b)
+
+	req, _ := http.NewRequest(http.MethodPost, "http://"+srvEndp+"/updates/", bb)
+	req.Header.Set("Content-Encoding", "gzip")
+	req.Header.Set("Accept-Encoding", "gzip")
+	res, err := ths.client.Do(req)
+
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return
+	}
+	res.Body.Close()
 }
 
 var srvEndp string
