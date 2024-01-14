@@ -49,9 +49,7 @@ type MetricFloat64 struct {
 }
 
 func NewMetricFloat64() *MetricFloat64 {
-	var v MetricFloat64
-	v.data = make(map[string]float64)
-	return &v
+	return &MetricFloat64{data: make(map[string]float64)}
 }
 
 func (ths *MetricFloat64) ReadData(ctx context.Context, keys ...string) (map[string]float64, error) {
@@ -73,19 +71,21 @@ func (ths *MetricFloat64) ReadData(ctx context.Context, keys ...string) (map[str
 func (ths *MetricFloat64) WriteData(ctx context.Context, key string, value string) error {
 	v, err := strconv.ParseFloat(value, 64)
 
-	if err == nil {
-		ths.mu.Lock()
-		ths.data[key] = v
-		defer ths.mu.Unlock()
+	if err != nil {
+		return err
 	}
 
-	return err
+	ths.mu.Lock()
+	ths.data[key] = v
+	ths.mu.Unlock()
+
+	return nil
 }
 
 func (ths *MetricFloat64) WriteDataPP(ctx context.Context, key string, value float64) error {
 	ths.mu.Lock()
 	ths.data[key] = value
-	defer ths.mu.Unlock()
+	ths.mu.Unlock()
 	return nil
 }
 
@@ -97,9 +97,7 @@ type MetricInt64Sum struct {
 }
 
 func NewMetricInt64Sum() *MetricInt64Sum {
-	var v MetricInt64Sum
-	v.data = make(map[string]int64)
-	return &v
+	return &MetricInt64Sum{data: make(map[string]int64)}
 }
 
 func (ths *MetricInt64Sum) ReadData(ctx context.Context, keys ...string) (map[string]int64, error) {
@@ -122,23 +120,20 @@ func (ths *MetricInt64Sum) WriteData(ctx context.Context, key string, value stri
 
 	v, err := strconv.ParseInt(value, 10, 64)
 
-	if err == nil {
-		ths.mu.Lock()
-		ths.data[key] += v
-		defer ths.mu.Unlock()
+	if err != nil {
+		return err
 	}
 
-	//fmt.Printf("WriteData %s: %s = %d\n", key, value, ths.data[key])
-
-	return err
+	ths.mu.Lock()
+	ths.data[key] += v
+	ths.mu.Unlock()
+	return nil
 }
 
 func (ths *MetricInt64Sum) WriteDataPP(ctx context.Context, key string, value int64) error {
 	ths.mu.Lock()
 	ths.data[key] += value
-	defer ths.mu.Unlock()
-
-	//fmt.Printf("WriteDataPP %s: %d = %d\n", key, value, ths.data[key])
+	ths.mu.Unlock()
 
 	return nil
 }
