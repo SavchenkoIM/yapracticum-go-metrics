@@ -3,14 +3,45 @@ package metricspoll
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
 	"runtime"
+	"time"
 	"yaprakticum-go-track2/internal/storage/storagecommons"
 )
+
+type RetryFunc func(r *http.Request) (*http.Response, error)
+
+func RetryRequest(ctx context.Context, f RetryFunc, r *http.Request) (*http.Response, error) {
+	var err error
+	var res *http.Response
+
+	waitTimes := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
+
+	for i, timeWait := range waitTimes {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		res, err = f(r)
+		if err == nil {
+			return res, nil
+		}
+
+		time.Sleep(timeWait)
+
+		fmt.Printf("Request retry #%d\n", i+1)
+	}
+
+	fmt.Printf("Request failed permanently!\n")
+	return nil, err
+}
 
 type metricsData struct {
 	typ      string
@@ -72,7 +103,9 @@ func (ths *MetricsHandler) SendData() {
 	req, _ := http.NewRequest(http.MethodPost, "http://"+srvEndp+"/updates/", bb)
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
-	res, err := ths.client.Do(req)
+
+	//res, err := ths.client.Do(req)
+	res, err := RetryRequest(context.Background(), ths.client.Do, req)
 
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
@@ -126,7 +159,8 @@ func (ths *MetricsHandler) RefreshData() {
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
 
-	res, err := ths.client.Do(req)
+	//res, err := ths.client.Do(req)
+	res, err := RetryRequest(context.Background(), ths.client.Do, req)
 
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
