@@ -187,7 +187,6 @@ func (ths *MetricFloat64) writeDataPPTX(ctx context.Context, tx *sql.Tx, key str
 
 	err = ths.applyValueDB(ctx, tx, key, value)
 	if err != nil {
-		println("Gauge " + err.Error())
 		return err
 	}
 	return nil
@@ -361,7 +360,6 @@ func (ths *MetricInt64Sum) writeDataPPTX(ctx context.Context, tx *sql.Tx, key st
 	//ths.data[key] += v
 	err = ths.applyValueDB(ctx, tx, key, value)
 	if err != nil {
-		println("Ctr " + err.Error())
 		return err
 	}
 
@@ -432,19 +430,13 @@ func (ms *DBStore) WriteDataMulty(ctx context.Context, metrics storagecommons.Me
 
 	tx, err := ms.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
-		println(err.Error())
 		return err
 	}
 
 	for _, v := range metrics.MetricsDB {
 
-		var ttx *sql.Tx
-		if v.MType == "gauge" {
-			ttx = tx
-		} else {
-			ttx = nil
-		}
-		_, err := ms.writeDataTX(ctx, ttx, v)
+		_, err := ms.writeDataTX(ctx, tx, v)
+
 		if err != nil {
 			err := tx.Rollback()
 			if err != nil {
