@@ -125,6 +125,7 @@ func (ths *MetricsHandler) RefreshData() {
 	req, _ := http.NewRequest(http.MethodPost, "http://"+srvEndp+"/update/", bb)
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
+
 	res, err := ths.client.Do(req)
 
 	if err != nil {
