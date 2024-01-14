@@ -1,27 +1,29 @@
 package storagecommons
 
+import "context"
+
 type StoragerFloat64 interface {
-	ReadData(keys ...string) (map[string]float64, error)
-	WriteData(key string, value string) error
-	WriteDataPP(key string, value float64) error
+	ReadData(ctx context.Context, keys ...string) (map[string]float64, error)
+	WriteData(ctx context.Context, key string, value string) error
+	WriteDataPP(ctx context.Context, key string, value float64) error
 }
 
 type StoragerInt64Sum interface {
-	ReadData(keys ...string) (map[string]int64, error)
-	WriteData(key string, value string) error
-	WriteDataPP(key string, value int64) error
+	ReadData(ctx context.Context, keys ...string) (map[string]int64, error)
+	WriteData(ctx context.Context, key string, value string) error
+	WriteDataPP(ctx context.Context, key string, value int64) error
 }
 
 type Storager interface {
-	Dump() error
-	Load() error
-	Close() error
-	WriteDataMulty(metrics MetricsDB) error
-	WriteData(metrics Metrics) (Metrics, error)
-	ReadData(metrics Metrics) (Metrics, error)
+	Dump(ctx context.Context) error
+	Load(ctx context.Context) error
+	Close(ctx context.Context) error
+	WriteDataMulty(ctx context.Context, metrics MetricsDB) error
+	WriteData(ctx context.Context, metrics Metrics) (Metrics, error)
+	ReadData(ctx context.Context, metrics Metrics) (Metrics, error)
 	GetGauges() StoragerFloat64
 	GetCounters() StoragerInt64Sum
-	Ping() error
+	Ping(ctx context.Context) error
 }
 
 type Metrics struct {

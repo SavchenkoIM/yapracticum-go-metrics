@@ -1,7 +1,7 @@
 package storage
 
 import (
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"context"
 	"go.uber.org/zap"
 	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/storage/dbstore"
@@ -15,17 +15,16 @@ type Storage struct {
 	storagecommons.Storager
 }
 
-func InitStorage(args config.ServerConfig, logger *zap.Logger) (*Storage, error) {
+func InitStorage(ctx context.Context, args config.ServerConfig, logger *zap.Logger) (*Storage, error) {
 	var ms Storage
 
-	println(args.ConnString)
 	if args.ConnString == "" {
-		fs, _ := filestore.New(args, logger)
+		fs, _ := filestore.New(ctx, args, logger)
 		ms.Storager = fs
 	} else {
-		dbs, _ := dbstore.New(args, logger)
+		dbs, _ := dbstore.New(ctx, args, logger)
 		ms.Storager = dbs
 	}
-	
+
 	return &ms, nil
 }

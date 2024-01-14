@@ -7,6 +7,7 @@ import (
 	"fmt"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
+	//"runtime/metrics"
 	"strconv"
 	"sync"
 	"time"
@@ -22,7 +23,7 @@ type DBStore struct {
 	db        *sql.DB
 }
 
-func New(args config.ServerConfig, logger *zap.Logger) (*DBStore, error) {
+func New(ctx context.Context, args config.ServerConfig, logger *zap.Logger) (*DBStore, error) {
 	var ms DBStore
 
 	logger.Sugar().Infof("Creating database storage...")
@@ -44,7 +45,7 @@ func New(args config.ServerConfig, logger *zap.Logger) (*DBStore, error) {
 	ms.Counters.db = ms.db
 
 	if args.Restore {
-		err := ms.Load()
+		err := ms.Load(ctx)
 		if err != nil {
 			logger.Sugar().Infof("Unable to load data from file: %s", err.Error())
 		}
@@ -66,7 +67,7 @@ func NewMetricFloat64() *MetricFloat64 {
 	return &v
 }
 
-func (ths *MetricFloat64) createTable() error {
+func (ths *MetricFloat64) createTable(ctx context.Context) error {
 	crTableCommand := `CREATE TABLE IF NOT EXISTS public."gauges" 
 (
     "Key" text NOT NULL,
@@ -74,25 +75,25 @@ func (ths *MetricFloat64) createTable() error {
     PRIMARY KEY ("Key")
 )`
 
-	_, err := ths.db.Exec(crTableCommand)
+	_, err := ths.db.ExecContext(ctx, crTableCommand)
 
 	return err
 }
 
-func (ths *MetricFloat64) applyValueDB(key string, value float64) error {
+func (ths *MetricFloat64) applyValueDB(ctx context.Context, key string, value float64) error {
 
 	/*query := "INSERT INTO \"gauges\" (\"Key\", \"Value\") VALUES ('" + key + "'," + fmt.Sprintf("%f", value) + ")"
 	query += " ON CONFLICT (\"Key\") DO UPDATE SET \"Value\" = EXCLUDED.\"Value\""*/
 	query := "INSERT INTO \"gauges\" (\"Key\", \"Value\") VALUES ($1, $2) ON CONFLICT (\"Key\") DO UPDATE SET \"Value\" = EXCLUDED.\"Value\""
 
-	_, err := ths.db.Exec(query, key, value)
+	_, err := ths.db.ExecContext(ctx, query, key, value)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (ths *MetricFloat64) getValueDB(keys ...string) (map[string]float64, error) {
+func (ths *MetricFloat64) getValueDB(ctx context.Context, keys ...string) (map[string]float64, error) {
 
 	ks := make([]any, 0)
 	for _, v := range keys {
@@ -112,7 +113,7 @@ func (ths *MetricFloat64) getValueDB(keys ...string) (map[string]float64, error)
 
 	res := make(map[string]float64)
 
-	rows, err := ths.db.Query(query, ks...)
+	rows, err := ths.db.QueryContext(ctx, query, ks...)
 
 	if err != nil {
 		return nil, err
@@ -140,9 +141,9 @@ func (ths *MetricFloat64) getValueDB(keys ...string) (map[string]float64, error)
 	return res, nil
 }
 
-func (ths *MetricFloat64) ReadData(keys ...string) (map[string]float64, error) {
+func (ths *MetricFloat64) ReadData(ctx context.Context, keys ...string) (map[string]float64, error) {
 
-	db, err := ths.getValueDB(keys...)
+	db, err := ths.getValueDB(ctx, keys...)
 	if err != nil {
 		return nil, err
 	}
@@ -151,20 +152,20 @@ func (ths *MetricFloat64) ReadData(keys ...string) (map[string]float64, error) {
 
 }
 
-func (ths *MetricFloat64) WriteData(key string, value string) error {
+func (ths *MetricFloat64) WriteData(ctx context.Context, key string, value string) error {
 	v, err := strconv.ParseFloat(value, 64)
 
 	if err == nil {
 		ths.mu.Lock()
 		defer ths.mu.Unlock()
 
-		err := ths.createTable()
+		err := ths.createTable(ctx)
 		if err != nil {
 			return err
 		}
 
 		//ths.data[key] = v
-		err = ths.applyValueDB(key, v)
+		err = ths.applyValueDB(ctx, key, v)
 		if err != nil {
 			return err
 		}
@@ -174,16 +175,16 @@ func (ths *MetricFloat64) WriteData(key string, value string) error {
 	return nil
 }
 
-func (ths *MetricFloat64) WriteDataPP(key string, value float64) error {
+func (ths *MetricFloat64) WriteDataPP(ctx context.Context, key string, value float64) error {
 	ths.mu.Lock()
 	defer ths.mu.Unlock()
 
-	err := ths.createTable()
+	err := ths.createTable(ctx)
 	if err != nil {
 		return err
 	}
 
-	err = ths.applyValueDB(key, value)
+	err = ths.applyValueDB(ctx, key, value)
 	if err != nil {
 		return err
 	}
@@ -204,19 +205,19 @@ func NewMetricInt64Sum() *MetricInt64Sum {
 	return &v
 }
 
-func (ths *MetricInt64Sum) createTable() error {
+func (ths *MetricInt64Sum) createTable(ctx context.Context) error {
 	crTableCommand := `CREATE TABLE IF NOT EXISTS public."counters"
 ( 
     "Key" text NOT NULL,
 	"Value" bigint NOT NULL,
 	PRIMARY KEY ("Key")
 )`
-	_, err := ths.db.Exec(crTableCommand)
+	_, err := ths.db.ExecContext(ctx, crTableCommand)
 
 	return err
 }
 
-func (ths *MetricInt64Sum) applyValueDB(key string, value int64) error {
+func (ths *MetricInt64Sum) applyValueDB(ctx context.Context, key string, value int64) error {
 
 	// Somewhat doesn't work as expectetd (Value changes only at initial and second update
 	/*query := "INSERT INTO \"counters\" (\"Key\", \"Value\") VALUES ($1, $2) ON CONFLICT (\"Key\") DO UPDATE SET \"Value\" = \"Value\" + EXCLUDED.\"Value\""
@@ -226,11 +227,11 @@ func (ths *MetricInt64Sum) applyValueDB(key string, value int64) error {
 	}*/
 
 	query := "INSERT INTO \"counters\" (\"Key\", \"Value\") VALUES ($1, $2)"
-	_, err := ths.db.Exec(query, key, value)
+	_, err := ths.db.ExecContext(ctx, query, key, value)
 	if err != nil {
 		// Looks like this counter already exist, try UPDATE
 		query = "UPDATE \"counters\" SET \"Value\" = \"Value\" + $2 WHERE \"Key\" = $1"
-		_, err = ths.db.Exec(query, key, value)
+		_, err = ths.db.ExecContext(ctx, query, key, value)
 		if err != nil {
 			return err
 		}
@@ -239,7 +240,7 @@ func (ths *MetricInt64Sum) applyValueDB(key string, value int64) error {
 	return nil
 }
 
-func (ths *MetricInt64Sum) getValueDB(keys ...string) (map[string]int64, error) {
+func (ths *MetricInt64Sum) getValueDB(ctx context.Context, keys ...string) (map[string]int64, error) {
 
 	ks := make([]any, 0)
 	for _, v := range keys {
@@ -259,7 +260,7 @@ func (ths *MetricInt64Sum) getValueDB(keys ...string) (map[string]int64, error) 
 
 	res := make(map[string]int64)
 
-	rows, err := ths.db.Query(query, ks...)
+	rows, err := ths.db.QueryContext(ctx, query, ks...)
 
 	if err != nil {
 		return nil, err
@@ -287,11 +288,11 @@ func (ths *MetricInt64Sum) getValueDB(keys ...string) (map[string]int64, error) 
 	return res, nil
 }
 
-func (ths *MetricInt64Sum) ReadData(keys ...string) (map[string]int64, error) {
+func (ths *MetricInt64Sum) ReadData(ctx context.Context, keys ...string) (map[string]int64, error) {
 	ths.mu.Lock()
 	defer ths.mu.Unlock()
 
-	db, err := ths.getValueDB(keys...)
+	db, err := ths.getValueDB(ctx, keys...)
 	if err != nil {
 		return nil, err
 	}
@@ -299,7 +300,7 @@ func (ths *MetricInt64Sum) ReadData(keys ...string) (map[string]int64, error) {
 	return db, nil
 }
 
-func (ths *MetricInt64Sum) WriteData(key string, value string) error {
+func (ths *MetricInt64Sum) WriteData(ctx context.Context, key string, value string) error {
 
 	ths.mu.Lock()
 	defer ths.mu.Unlock()
@@ -309,13 +310,13 @@ func (ths *MetricInt64Sum) WriteData(key string, value string) error {
 		return err
 	}
 
-	err = ths.createTable()
+	err = ths.createTable(ctx)
 	if err != nil {
 		return err
 	}
 
 	//ths.data[key] += v
-	err = ths.applyValueDB(key, int64(val))
+	err = ths.applyValueDB(ctx, key, int64(val))
 	if err != nil {
 		return err
 	}
@@ -323,18 +324,18 @@ func (ths *MetricInt64Sum) WriteData(key string, value string) error {
 	return nil
 }
 
-func (ths *MetricInt64Sum) WriteDataPP(key string, value int64) error {
+func (ths *MetricInt64Sum) WriteDataPP(ctx context.Context, key string, value int64) error {
 
 	ths.mu.Lock()
 	defer ths.mu.Unlock()
 
-	err := ths.createTable()
+	err := ths.createTable(ctx)
 	if err != nil {
 		return err
 	}
 
 	//ths.data[key] += v
-	err = ths.applyValueDB(key, value)
+	err = ths.applyValueDB(ctx, key, value)
 	if err != nil {
 		return err
 	}
@@ -344,17 +345,17 @@ func (ths *MetricInt64Sum) WriteDataPP(key string, value int64) error {
 
 // DumpLoad
 
-func (ms *DBStore) Dump() error {
+func (ms *DBStore) Dump(ctx context.Context) error {
 
 	return nil
 }
 
-func (ms *DBStore) Load() error {
+func (ms *DBStore) Load(ctx context.Context) error {
 
 	return nil
 }
 
-func (ms *DBStore) WriteDataMulty(metrics storagecommons.MetricsDB) error {
+func (ms *DBStore) WriteDataMulty(ctx context.Context, metrics storagecommons.MetricsDB) error {
 
 	/*ctr := 0
 	paramsStr := make([]string, 0)
@@ -381,13 +382,13 @@ func (ms *DBStore) WriteDataMulty(metrics storagecommons.MetricsDB) error {
 		}
 	}
 
+	ms.dumpMutex.Lock()
+	defer ms.dumpMutex.Unlock()
+
 	err := ms.Gauges.createTable()
 	if err != nil {
 		return err
 	}
-
-	ms.dumpMutex.Lock()
-	defer ms.dumpMutex.Unlock()
 
 	query := "INSERT INTO \"gauges\" (\"Key\", \"Value\") VALUES " + strings.Join(paramsStr, ",") + " "
 	query += "ON CONFLICT (\"Key\") DO UPDATE SET \"Value\" = EXCLUDED.\"Value\""
@@ -401,7 +402,7 @@ func (ms *DBStore) WriteDataMulty(metrics storagecommons.MetricsDB) error {
 	}*/
 
 	for _, v := range metrics.MetricsDB {
-		_, err := ms.WriteData(v)
+		_, err := ms.WriteData(ctx, v)
 		if err != nil {
 			return err
 		}
@@ -410,7 +411,7 @@ func (ms *DBStore) WriteDataMulty(metrics storagecommons.MetricsDB) error {
 	return nil
 }
 
-func (ms *DBStore) WriteData(metrics storagecommons.Metrics) (rMetrics storagecommons.Metrics, rError error) {
+func (ms *DBStore) WriteData(ctx context.Context, metrics storagecommons.Metrics) (rMetrics storagecommons.Metrics, rError error) {
 	rError = nil
 	rMetrics = metrics
 
@@ -419,15 +420,15 @@ func (ms *DBStore) WriteData(metrics storagecommons.Metrics) (rMetrics storageco
 		if metrics.Value == nil {
 			return metrics, errors.New("no Value data provided")
 		}
-		ms.Gauges.WriteDataPP(metrics.ID, *metrics.Value)
+		ms.Gauges.WriteDataPP(ctx, metrics.ID, *metrics.Value)
 		rMetrics = metrics
 	case "counter":
 		if metrics.Delta == nil {
 			return metrics, errors.New("no Value data provided")
 		}
-		ms.Counters.WriteDataPP(metrics.ID, *metrics.Delta)
+		ms.Counters.WriteDataPP(ctx, metrics.ID, *metrics.Delta)
 
-		data, err := ms.Counters.ReadData()
+		data, err := ms.Counters.ReadData(ctx)
 		if err != nil {
 			return rMetrics, err
 		}
@@ -440,16 +441,16 @@ func (ms *DBStore) WriteData(metrics storagecommons.Metrics) (rMetrics storageco
 	}
 
 	if ms.syncWrite {
-		ms.Dump()
+		ms.Dump(ctx)
 	}
 
 	return
 }
 
-func (ms *DBStore) ReadData(metrics storagecommons.Metrics) (storagecommons.Metrics, error) {
+func (ms *DBStore) ReadData(ctx context.Context, metrics storagecommons.Metrics) (storagecommons.Metrics, error) {
 	switch metrics.MType {
 	case "gauge":
-		data, err := ms.Gauges.ReadData()
+		data, err := ms.Gauges.ReadData(ctx)
 
 		if err != nil {
 			return metrics, err
@@ -462,7 +463,7 @@ func (ms *DBStore) ReadData(metrics storagecommons.Metrics) (storagecommons.Metr
 		}
 		return metrics, errors.New("Key gauge/" + metrics.ID + " not exists")
 	case "counter":
-		data, err := ms.Counters.ReadData()
+		data, err := ms.Counters.ReadData(ctx)
 
 		if err != nil {
 			return metrics, nil
@@ -479,7 +480,7 @@ func (ms *DBStore) ReadData(metrics storagecommons.Metrics) (storagecommons.Metr
 	}
 }
 
-func (ms *DBStore) Close() error {
+func (ms *DBStore) Close(ctx context.Context) error {
 	if ms.db != nil {
 		return ms.db.Close()
 	}
@@ -494,11 +495,11 @@ func (ms *DBStore) GetCounters() storagecommons.StoragerInt64Sum {
 	return ms.Counters
 }
 
-func (ms *DBStore) Ping() error {
+func (ms *DBStore) Ping(ctx context.Context) error {
 	if ms.db == nil {
 		return errors.New("database connection was not established")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	ctxw, cancel := context.WithTimeout(ctx, 250*time.Millisecond)
 	defer cancel()
-	return ms.db.PingContext(ctx)
+	return ms.db.PingContext(ctxw)
 }

@@ -50,13 +50,13 @@ func Router() chi.Router {
 
 }
 
-func DumpDBFile(args config.ServerConfig, dataStorage *storage.Storage, logger *zap.Logger) {
+func DumpDBFile(ctx context.Context, args config.ServerConfig, dataStorage *storage.Storage, logger *zap.Logger) {
 	dt := time.Now()
 	for {
 		if args.StoreInterval > 0 {
 			if time.Since(dt) >= args.StoreInterval {
 				dt = time.Now()
-				err := dataStorage.Dump()
+				err := dataStorage.Dump(ctx)
 				if err != nil {
 					logger.Info(err.Error())
 				}
@@ -75,22 +75,23 @@ func main() {
 		panic(err)
 	}
 
-	dataStorage, err = storage.InitStorage(args, logger)
+	var parentContext context.Context
+	dataStorage, err = storage.InitStorage(parentContext, args, logger)
 	if err != nil {
 		panic(err)
 	}
-	defer dataStorage.Close()
+	defer dataStorage.Close(parentContext)
 	updatemetrics.SetDataStorage(dataStorage)
 
 	getmetric.SetDataStorage(dataStorage)
 
 	middleware.SetLogger(logger)
 
-	go DumpDBFile(args, dataStorage, logger)
+	go DumpDBFile(parentContext, args, dataStorage, logger)
 
 	server := http.Server{Addr: args.Endp, Handler: Router()}
 
-	go catchSignal(&server, logger)
+	go catchSignal(parentContext, &server, logger)
 
 	logger.Info("Server running at " + args.Endp)
 	if err := server.ListenAndServe(); err != nil {
@@ -98,7 +99,7 @@ func main() {
 	}
 }
 
-func catchSignal(server *http.Server, logger *zap.Logger) {
+func catchSignal(ctx context.Context, server *http.Server, logger *zap.Logger) {
 
 	terminateSignals := make(chan os.Signal, 1)
 	signal.Notify(terminateSignals, syscall.SIGINT, syscall.SIGTERM)
@@ -106,8 +107,9 @@ func catchSignal(server *http.Server, logger *zap.Logger) {
 	//for {
 	s := <-terminateSignals
 	logger.Info("Got one of stop signals, shutting down server gracefully, SIGNAL NAME :" + s.String())
-	dataStorage.Dump()
-	server.Shutdown(context.Background())
+
+	dataStorage.Dump(ctx)
+	server.Shutdown(ctx)
 	//}
 
 }

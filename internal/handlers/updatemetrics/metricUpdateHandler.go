@@ -24,14 +24,14 @@ func MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
 	switch typ {
 	case "gauge":
 
-		if err := dataStorage.GetGauges().WriteData(name, val); err != nil {
+		if err := dataStorage.GetGauges().WriteData(req.Context(), name, val); err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 	case "counter":
 
-		if err := dataStorage.GetCounters().WriteData(name, val); err != nil {
+		if err := dataStorage.GetCounters().WriteData(req.Context(), name, val); err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -57,7 +57,7 @@ func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	resp, err := dataStorage.WriteData(dta)
+	resp, err := dataStorage.WriteData(req.Context(), dta)
 	val, _ := json.MarshalIndent(resp, "", "    ")
 
 	if err == nil {
@@ -82,7 +82,7 @@ func MultiMetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err = dataStorage.WriteDataMulty(dta)
+	err = dataStorage.WriteDataMulty(req.Context(), dta)
 
 	if err == nil {
 		return
