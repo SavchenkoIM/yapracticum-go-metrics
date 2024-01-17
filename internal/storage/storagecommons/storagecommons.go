@@ -16,6 +16,7 @@ type Storager interface {
 	Dump() error
 	Load() error
 	Close() error
+	WriteDataMulty(metrics MetricsDB) error
 	WriteData(metrics Metrics) (Metrics, error)
 	ReadData(metrics Metrics) (Metrics, error)
 	GetGauges() StoragerFloat64
