@@ -16,7 +16,7 @@ import (
 	"yaprakticum-go-track2/internal/storage"
 )
 
-var dataStorage *storage.MemStorage
+var dataStorage *storage.Storage
 
 func Router() chi.Router {
 
@@ -47,7 +47,7 @@ func Router() chi.Router {
 
 }
 
-func DumpDBFile(args config.ServerConfig, dataStorage *storage.MemStorage, logger *zap.Logger) {
+func DumpDBFile(args config.ServerConfig, dataStorage *storage.Storage, logger *zap.Logger) {
 	dt := time.Now()
 	for {
 		if args.StoreInterval > 0 {

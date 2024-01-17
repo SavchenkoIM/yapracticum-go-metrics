@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"net/http"
 	"yaprakticum-go-track2/internal/storage"
+	"yaprakticum-go-track2/internal/storage/storagecommons"
 
 	"github.com/go-chi/chi/v5"
 )
 
-var dataStorage *storage.MemStorage
+var dataStorage *storage.Storage
 
-func SetDataStorage(storage *storage.MemStorage) {
+func SetDataStorage(storage *storage.Storage) {
 	dataStorage = storage
 }
 
@@ -23,14 +24,14 @@ func MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
 	switch typ {
 	case "gauge":
 
-		if err := dataStorage.Gauges.WriteData(name, val); err != nil {
+		if err := dataStorage.GetGauges().WriteData(name, val); err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 	case "counter":
 
-		if err := dataStorage.Counters.WriteData(name, val); err != nil {
+		if err := dataStorage.GetCounters().WriteData(name, val); err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -44,7 +45,7 @@ func MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
 }
 
 func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
-	var dta storage.Metrics
+	var dta storagecommons.Metrics
 
 	body := make([]byte, req.ContentLength)
 	req.Body.Read(body)

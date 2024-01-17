@@ -9,7 +9,7 @@ import (
 	"math/rand"
 	"net/http"
 	"runtime"
-	"yaprakticum-go-track2/internal/storage"
+	"yaprakticum-go-track2/internal/storage/storagecommons"
 )
 
 type metricsData struct {
@@ -49,7 +49,7 @@ func compressGzip(b []byte) ([]byte, error) {
 func (ths *MetricsHandler) SendData() {
 	for k, v := range ths.metricsMap {
 
-		var dta storage.Metrics
+		var dta storagecommons.Metrics
 		dta.MType = v.typ
 		dta.ID = k
 		switch dta.MType {
@@ -114,7 +114,7 @@ func (ths *MetricsHandler) RefreshData() {
 	//ths.metricsMap[28].value = fmt.Sprintf("%d", this.counter)
 
 	v := int64(1)
-	jm, _ := json.Marshal(storage.Metrics{MType: "counter", Delta: &v, ID: "PollCount"})
+	jm, _ := json.Marshal(storagecommons.Metrics{MType: "counter", Delta: &v, ID: "PollCount"})
 	b, _ := compressGzip(jm)
 	bb := bytes.NewBuffer(b)
 
