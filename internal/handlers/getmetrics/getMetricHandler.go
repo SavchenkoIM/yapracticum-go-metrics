@@ -19,7 +19,7 @@ func SetDataStorage(storage *storage.Storage) {
 }
 
 func PingHandler(res http.ResponseWriter, req *http.Request) {
-	if err := dataStorage.Ping(); err != nil {
+	if err := dataStorage.Ping(req.Context()); err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
 	}
 	res.WriteHeader(http.StatusOK)
@@ -34,7 +34,7 @@ func GetAllMetricsHandler(res http.ResponseWriter, req *http.Request) {
 	text.WriteString("=========================\n")
 	text.WriteString("COUNTERS:\n")
 
-	dta1, _ := dataStorage.GetCounters().ReadData()
+	dta1, _ := dataStorage.GetCounters().ReadData(req.Context())
 	for k, v := range dta1 {
 		text.WriteString(fmt.Sprintf("%s: %d\n", k, v))
 	}
@@ -42,7 +42,7 @@ func GetAllMetricsHandler(res http.ResponseWriter, req *http.Request) {
 	text.WriteString("=========================\n")
 	text.WriteString("GAUGES:\n")
 
-	dta2, _ := dataStorage.GetGauges().ReadData()
+	dta2, _ := dataStorage.GetGauges().ReadData(req.Context())
 	for k, v := range dta2 {
 		text.WriteString(fmt.Sprintf("%s: %f\n", k, v))
 	}
@@ -58,14 +58,14 @@ func GetMetricHandler(res http.ResponseWriter, req *http.Request) {
 
 	switch typ {
 	case "gauge":
-		value, err := dataStorage.GetGauges().ReadData(nam)
+		value, err := dataStorage.GetGauges().ReadData(req.Context(), nam)
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusNotFound)
 			return
 		}
 		res.Write([]byte(strconv.FormatFloat(value[nam], 'f', -1, 64)))
 	case "counter":
-		value, err := dataStorage.GetCounters().ReadData(nam)
+		value, err := dataStorage.GetCounters().ReadData(req.Context(), nam)
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusNotFound)
 			return
@@ -92,7 +92,7 @@ func GetMetricHandlerREST(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	dta2, err := dataStorage.ReadData(dta)
+	dta2, err := dataStorage.ReadData(req.Context(), dta)
 
 	if err == nil {
 		resp, _ := json.MarshalIndent(dta2, "", "    ")

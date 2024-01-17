@@ -1,6 +1,7 @@
 package filestore
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"go.uber.org/zap"
@@ -19,7 +20,7 @@ type FileStore struct {
 	fileName  string
 }
 
-func New(args config.ServerConfig, logger *zap.Logger) (*FileStore, error) {
+func New(ctx context.Context, args config.ServerConfig, logger *zap.Logger) (*FileStore, error) {
 	var ms FileStore
 
 	logger.Sugar().Infof("Creating memory/file storage...")
@@ -31,7 +32,7 @@ func New(args config.ServerConfig, logger *zap.Logger) (*FileStore, error) {
 	ms.Counters = NewMetricInt64Sum()
 
 	if args.Restore {
-		err := ms.Load()
+		err := ms.Load(ctx)
 		if err != nil {
 			logger.Sugar().Infof("Unable to load data from file: %s", err.Error())
 		}
@@ -48,12 +49,10 @@ type MetricFloat64 struct {
 }
 
 func NewMetricFloat64() *MetricFloat64 {
-	var v MetricFloat64
-	v.data = make(map[string]float64)
-	return &v
+	return &MetricFloat64{data: make(map[string]float64)}
 }
 
-func (ths *MetricFloat64) ReadData(keys ...string) (map[string]float64, error) {
+func (ths *MetricFloat64) ReadData(ctx context.Context, keys ...string) (map[string]float64, error) {
 	switch len(keys) {
 	case 0:
 		return ths.data, nil
@@ -69,22 +68,24 @@ func (ths *MetricFloat64) ReadData(keys ...string) (map[string]float64, error) {
 	}
 }
 
-func (ths *MetricFloat64) WriteData(key string, value string) error {
+func (ths *MetricFloat64) WriteData(ctx context.Context, key string, value string) error {
 	v, err := strconv.ParseFloat(value, 64)
 
-	if err == nil {
-		ths.mu.Lock()
-		ths.data[key] = v
-		defer ths.mu.Unlock()
+	if err != nil {
+		return err
 	}
 
-	return err
+	ths.mu.Lock()
+	ths.data[key] = v
+	ths.mu.Unlock()
+
+	return nil
 }
 
-func (ths *MetricFloat64) WriteDataPP(key string, value float64) error {
+func (ths *MetricFloat64) WriteDataPP(ctx context.Context, key string, value float64) error {
 	ths.mu.Lock()
 	ths.data[key] = value
-	defer ths.mu.Unlock()
+	ths.mu.Unlock()
 	return nil
 }
 
@@ -96,12 +97,10 @@ type MetricInt64Sum struct {
 }
 
 func NewMetricInt64Sum() *MetricInt64Sum {
-	var v MetricInt64Sum
-	v.data = make(map[string]int64)
-	return &v
+	return &MetricInt64Sum{data: make(map[string]int64)}
 }
 
-func (ths *MetricInt64Sum) ReadData(keys ...string) (map[string]int64, error) {
+func (ths *MetricInt64Sum) ReadData(ctx context.Context, keys ...string) (map[string]int64, error) {
 	switch len(keys) {
 	case 0:
 		return ths.data, nil
@@ -117,40 +116,37 @@ func (ths *MetricInt64Sum) ReadData(keys ...string) (map[string]int64, error) {
 	}
 }
 
-func (ths *MetricInt64Sum) WriteData(key string, value string) error {
+func (ths *MetricInt64Sum) WriteData(ctx context.Context, key string, value string) error {
 
 	v, err := strconv.ParseInt(value, 10, 64)
 
-	if err == nil {
-		ths.mu.Lock()
-		ths.data[key] += v
-		defer ths.mu.Unlock()
+	if err != nil {
+		return err
 	}
 
-	//fmt.Printf("WriteData %s: %s = %d\n", key, value, ths.data[key])
-
-	return err
+	ths.mu.Lock()
+	ths.data[key] += v
+	ths.mu.Unlock()
+	return nil
 }
 
-func (ths *MetricInt64Sum) WriteDataPP(key string, value int64) error {
+func (ths *MetricInt64Sum) WriteDataPP(ctx context.Context, key string, value int64) error {
 	ths.mu.Lock()
 	ths.data[key] += value
-	defer ths.mu.Unlock()
-
-	//fmt.Printf("WriteDataPP %s: %d = %d\n", key, value, ths.data[key])
+	ths.mu.Unlock()
 
 	return nil
 }
 
 // DumpLoad
 
-func (ms *FileStore) Dump() error {
+func (ms *FileStore) Dump(ctx context.Context) error {
 	ms.dumpMutex.Lock()
 	defer ms.dumpMutex.Unlock()
 
 	mdb := storagecommons.MetricsDB{MetricsDB: make([]storagecommons.Metrics, 0)}
 
-	data, err := ms.Gauges.ReadData()
+	data, err := ms.Gauges.ReadData(ctx)
 	if err != nil {
 		return err
 	}
@@ -163,7 +159,7 @@ func (ms *FileStore) Dump() error {
 		})
 	}
 
-	data2, err := ms.Counters.ReadData()
+	data2, err := ms.Counters.ReadData(ctx)
 	if err != nil {
 		return err
 	}
@@ -194,7 +190,7 @@ func (ms *FileStore) Dump() error {
 	return nil
 }
 
-func (ms *FileStore) Load() error {
+func (ms *FileStore) Load(ctx context.Context) error {
 	data, err := os.ReadFile(ms.fileName)
 	if err != nil {
 		return err
@@ -208,18 +204,18 @@ func (ms *FileStore) Load() error {
 	for _, v := range mdb.MetricsDB {
 		switch v.MType {
 		case "counter":
-			ms.Counters.WriteDataPP(v.ID, *v.Delta)
+			ms.Counters.WriteDataPP(ctx, v.ID, *v.Delta)
 		case "gauge":
-			ms.Gauges.WriteDataPP(v.ID, *v.Value)
+			ms.Gauges.WriteDataPP(ctx, v.ID, *v.Value)
 		}
 	}
 
 	return nil
 }
 
-func (ms *FileStore) WriteDataMulty(metrics storagecommons.MetricsDB) error {
+func (ms *FileStore) WriteDataMulty(ctx context.Context, metrics storagecommons.MetricsDB) error {
 	for _, record := range metrics.MetricsDB {
-		_, err := ms.WriteData(record)
+		_, err := ms.WriteData(ctx, record)
 		if err != nil {
 			return err
 		}
@@ -227,7 +223,7 @@ func (ms *FileStore) WriteDataMulty(metrics storagecommons.MetricsDB) error {
 	return nil
 }
 
-func (ms *FileStore) WriteData(metrics storagecommons.Metrics) (rMetrics storagecommons.Metrics, rError error) {
+func (ms *FileStore) WriteData(ctx context.Context, metrics storagecommons.Metrics) (rMetrics storagecommons.Metrics, rError error) {
 	rError = nil
 	rMetrics = metrics
 
@@ -236,15 +232,15 @@ func (ms *FileStore) WriteData(metrics storagecommons.Metrics) (rMetrics storage
 		if metrics.Value == nil {
 			return metrics, errors.New("no Value data provided")
 		}
-		ms.Gauges.WriteDataPP(metrics.ID, *metrics.Value)
+		ms.Gauges.WriteDataPP(ctx, metrics.ID, *metrics.Value)
 		rMetrics = metrics
 	case "counter":
 		if metrics.Delta == nil {
 			return metrics, errors.New("no Value data provided")
 		}
-		ms.Counters.WriteDataPP(metrics.ID, *metrics.Delta)
+		ms.Counters.WriteDataPP(ctx, metrics.ID, *metrics.Delta)
 
-		data, err := ms.Counters.ReadData()
+		data, err := ms.Counters.ReadData(ctx)
 		if err != nil {
 			return rMetrics, err
 		}
@@ -257,16 +253,16 @@ func (ms *FileStore) WriteData(metrics storagecommons.Metrics) (rMetrics storage
 	}
 
 	if ms.syncWrite {
-		ms.Dump()
+		ms.Dump(ctx)
 	}
 
 	return
 }
 
-func (ms *FileStore) ReadData(metrics storagecommons.Metrics) (storagecommons.Metrics, error) {
+func (ms *FileStore) ReadData(ctx context.Context, metrics storagecommons.Metrics) (storagecommons.Metrics, error) {
 	switch metrics.MType {
 	case "gauge":
-		data, err := ms.Gauges.ReadData()
+		data, err := ms.Gauges.ReadData(ctx)
 
 		if err != nil {
 			return metrics, err
@@ -279,7 +275,7 @@ func (ms *FileStore) ReadData(metrics storagecommons.Metrics) (storagecommons.Me
 		}
 		return metrics, errors.New("Key gauge/" + metrics.ID + " not exists")
 	case "counter":
-		data, err := ms.Counters.ReadData()
+		data, err := ms.Counters.ReadData(ctx)
 
 		if err != nil {
 			return metrics, nil
@@ -296,7 +292,7 @@ func (ms *FileStore) ReadData(metrics storagecommons.Metrics) (storagecommons.Me
 	}
 }
 
-func (ms *FileStore) Close() error {
+func (ms *FileStore) Close(ctx context.Context) error {
 	return nil
 }
 
@@ -308,6 +304,6 @@ func (ms *FileStore) GetCounters() storagecommons.StoragerInt64Sum {
 	return ms.Counters
 }
 
-func (ms *FileStore) Ping() error {
+func (ms *FileStore) Ping(ctx context.Context) error {
 	return nil
 }

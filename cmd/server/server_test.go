@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"go.uber.org/zap"
 	"net/http"
 	"net/http/httptest"
@@ -42,8 +43,10 @@ func TestIter2Server(t *testing.T) {
 		{testName: "Setting value to existing gauge testVal", method: http.MethodPost, url: "/update/gauge/testVal/2", wantStatusCode: http.StatusOK, wantKv: []kv{{typ: "gauge", key: "testVal", value: float64(2)}}},
 	}
 
+	var ctx context.Context
+
 	z, _ := zap.NewDevelopment()
-	db, _ := storage.InitStorage(config.ServerConfig{}, z)
+	db, _ := storage.InitStorage(ctx, config.ServerConfig{}, z)
 	updatemetrics.SetDataStorage(db)
 	getmetric.SetDataStorage(db)
 	logger, err := zap.NewDevelopment()
@@ -74,10 +77,10 @@ func TestIter2Server(t *testing.T) {
 
 				switch v.typ {
 				case "gauge":
-					val, _ := db.GetGauges().ReadData(v.key)
+					val, _ := db.GetGauges().ReadData(ctx, v.key)
 					assert.Equal(t, v.value, val[v.key])
 				case "counter":
-					val, _ := db.GetCounters().ReadData(v.key)
+					val, _ := db.GetCounters().ReadData(ctx, v.key)
 					assert.Equal(t, v.value, val[v.key])
 				}
 
