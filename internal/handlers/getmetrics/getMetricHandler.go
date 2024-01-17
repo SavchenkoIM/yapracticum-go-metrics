@@ -17,6 +17,13 @@ func SetDataStorage(storage *storage.MemStorage) {
 	dataStorage = storage
 }
 
+func PingHandler(res http.ResponseWriter, req *http.Request) {
+	if err := dataStorage.PingDB(); err != nil {
+		res.WriteHeader(http.StatusInternalServerError)
+	}
+	res.WriteHeader(http.StatusOK)
+}
+
 func GetAllMetricsHandler(res http.ResponseWriter, req *http.Request) {
 
 	text := strings.Builder{}

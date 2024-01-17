@@ -12,6 +12,7 @@ type ServerConfig struct {
 	StoreInterval   time.Duration
 	FileStoragePath string
 	Restore         bool
+	ConnString      string
 }
 
 func (cfg *ServerConfig) Load() ServerConfig {
@@ -19,6 +20,7 @@ func (cfg *ServerConfig) Load() ServerConfig {
 	storeInterval := flag.Int64("i", 300, "Store interval")
 	fileStoragePath := flag.String("f", "/tmp/metrics-db.json", "File storage path")
 	restoreData := flag.Bool("r", true, "Restore data from disc")
+	connString := flag.String("d", "", "DB Connection string")
 	flag.Parse()
 
 	if val, exist := os.LookupEnv("ADDRESS"); exist {
@@ -37,11 +39,15 @@ func (cfg *ServerConfig) Load() ServerConfig {
 			*restoreData = val
 		}
 	}
+	if val, exist := os.LookupEnv("DATABASE_DSN"); exist {
+		*connString = val
+	}
 
 	cfg.Endp = *endp
 	cfg.FileStoragePath = *fileStoragePath
 	cfg.Restore = *restoreData
 	cfg.StoreInterval = time.Duration(*storeInterval) * time.Second
+	cfg.ConnString = *connString
 
 	return *cfg
 }

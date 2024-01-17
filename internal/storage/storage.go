@@ -1,12 +1,16 @@
 package storage
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 	"os"
 	"strconv"
 	"sync"
+	"time"
 	"yaprakticum-go-track2/internal/config"
 )
 
@@ -23,6 +27,8 @@ type MetricsDB struct {
 
 // Storage
 
+var dbConn *pgx.Conn
+
 type MemStorage struct {
 	Gauges    *metricFloat64
 	Counters  *metricInt64Sum
@@ -32,6 +38,13 @@ type MemStorage struct {
 }
 
 func InitStorage(args config.ServerConfig, logger *zap.Logger) (*MemStorage, error) {
+
+	var err error
+	dbConn, err = pgx.Connect(context.Background(), args.ConnString)
+	if err != nil {
+		logger.Info(fmt.Sprintf("Unable to connection to database: %v\n", err))
+	}
+
 	var ms MemStorage
 	ms.Counters = newMetricInt64Sum()
 	ms.Gauges = newMetricFloat64()
@@ -48,8 +61,26 @@ func InitStorage(args config.ServerConfig, logger *zap.Logger) (*MemStorage, err
 	return &ms, nil
 }
 
+func (ms *MemStorage) PingDB() error {
+	if dbConn == nil {
+		return errors.New("database connection was not established")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	defer cancel()
+	return dbConn.Ping(ctx)
+}
+
 func (ms *MemStorage) Close() error {
-	return ms.Dump()
+
+	var err error
+	err = nil
+
+	err = ms.Dump()
+	if dbConn != nil {
+		err = dbConn.Close(context.Background())
+	}
+
+	return err
 }
 
 func (ms *MemStorage) Dump() error {

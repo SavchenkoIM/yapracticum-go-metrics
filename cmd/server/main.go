@@ -39,6 +39,9 @@ func Router() chi.Router {
 			r.Get("/{type}/{name}", getmetric.GetMetricHandler)
 			r.Post("/", getmetric.GetMetricHandlerREST)
 		})
+		r.Route("/ping", func(r chi.Router) {
+			r.Get("/", getmetric.PingHandler)
+		})
 	})
 	return r
 
