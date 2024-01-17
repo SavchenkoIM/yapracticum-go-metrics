@@ -1,1 +1,0 @@
-server -f D:\metricsDB.json -i 300 -d "postgres://postgres:postgres@localhost:5432/YaPraktikum"
