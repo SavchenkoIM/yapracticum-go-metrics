@@ -3,9 +3,9 @@ package getmetric
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"strconv"
-	"strings"
 	"yaprakticum-go-track2/internal/storage"
 	"yaprakticum-go-track2/internal/storage/storagecommons"
 
@@ -27,28 +27,56 @@ func PingHandler(res http.ResponseWriter, req *http.Request) {
 
 func GetAllMetricsHandler(res http.ResponseWriter, req *http.Request) {
 
-	text := strings.Builder{}
+	type Counter struct {
+		Key   string
+		Value int64
+	}
 
-	res.Header().Set("Content-Type", "text/html")
+	type Gauge struct {
+		Key   string
+		Value float64
+	}
 
-	text.WriteString("=========================\n")
-	text.WriteString("COUNTERS:\n")
+	type PageData struct {
+		Counters []Counter
+		Gauges   []Gauge
+	}
+
+	var pageData PageData
+	pageData.Counters = make([]Counter, 0)
+	pageData.Gauges = make([]Gauge, 0)
 
 	dta1, _ := dataStorage.GetCounters().ReadData(req.Context())
 	for k, v := range dta1 {
-		text.WriteString(fmt.Sprintf("%s: %d\n", k, v))
+		pageData.Counters = append(pageData.Counters, Counter{k, v})
 	}
-
-	text.WriteString("=========================\n")
-	text.WriteString("GAUGES:\n")
 
 	dta2, _ := dataStorage.GetGauges().ReadData(req.Context())
 	for k, v := range dta2 {
-		text.WriteString(fmt.Sprintf("%s: %f\n", k, v))
+		pageData.Gauges = append(pageData.Gauges, Gauge{k, v})
 	}
 
-	txt := strings.Replace(text.String(), "\n", "</br>", -1)
-	res.Write([]byte(txt))
+	tmplStr := `=========================</br>
+COUNTERS:</br>
+{{range .Counters}}
+	{{.Key}}:{{.Value}}</br>
+{{end}}
+=========================</br>
+GAUGES:</br>
+{{range .Gauges}} 
+	{{.Key}}:{{.Value}}</br> 
+{{end}}
+`
+	tmpl, _ := template.New("AllMetrics").Parse(tmplStr)
+
+	res.Header().Set("Content-Type", "text/html")
+
+	err := tmpl.Execute(res, pageData)
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 }
 
 func GetMetricHandler(res http.ResponseWriter, req *http.Request) {
