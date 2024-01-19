@@ -81,7 +81,7 @@ func (ths *MetricsHandler) SendData() {
 	var dta storagecommons.MetricsDB
 
 	for k, v := range ths.metricsMap {
-
+		k, v := k, v
 		var dta_ storagecommons.Metrics
 		dta_.MType = v.typ
 		dta_.ID = k

@@ -48,11 +48,13 @@ func GetAllMetricsHandler(res http.ResponseWriter, req *http.Request) {
 
 	dta1, _ := dataStorage.GetCounters().ReadData(req.Context())
 	for k, v := range dta1 {
+		k, v := k, v
 		pageData.Counters = append(pageData.Counters, Counter{k, v})
 	}
 
 	dta2, _ := dataStorage.GetGauges().ReadData(req.Context())
 	for k, v := range dta2 {
+		k, v := k, v
 		pageData.Gauges = append(pageData.Gauges, Gauge{k, v})
 	}
 

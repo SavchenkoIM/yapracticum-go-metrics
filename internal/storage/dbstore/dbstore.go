@@ -384,57 +384,12 @@ func (ms *DBStore) Load(ctx context.Context) error {
 
 func (ms *DBStore) WriteDataMulty(ctx context.Context, metrics storagecommons.MetricsDB) error {
 
-	/*ctr := 0
-	paramsStr := make([]string, 0)
-	paramsVals := make([]any, 0)
-
-	for _, record := range metrics.MetricsDB {
-		switch record.MType {
-		case "counter":
-			_, err := ms.WriteData(record)
-			if err != nil {
-				return err
-			}
-			break
-		case "gauge":
-			ID := record.ID
-			Value := *record.Value
-			//paramsStr = append(paramsStr, fmt.Sprintf("($%d,$%d)", ctr*2+1, ctr*2+2))
-			paramsStr = append(paramsStr, fmt.Sprintf("('%s',%s)", ID, fmt.Sprintf("%f", Value)))
-			paramsVals = append(paramsVals, ID)
-			paramsVals = append(paramsVals, Value)
-			ctr++
-			println(ID + " " + fmt.Sprintf("%f\n", Value))
-			break
-		}
-	}
-
-	ms.dumpMutex.Lock()
-	defer ms.dumpMutex.Unlock()
-
-	err := ms.Gauges.createTable()
-	if err != nil {
-		return err
-	}
-
-	query := "INSERT INTO \"gauges\" (\"Key\", \"Value\") VALUES " + strings.Join(paramsStr, ",") + " "
-	query += "ON CONFLICT (\"Key\") DO UPDATE SET \"Value\" = EXCLUDED.\"Value\""
-
-	println(query)
-
-	_, err = ms.db.Exec(query) //, paramsVals...)
-	if err != nil {
-		println(err.Error())
-		return err
-	}*/
-
 	tx, err := ms.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
 		return err
 	}
 
 	for _, v := range metrics.MetricsDB {
-
 		_, err := ms.writeDataTX(ctx, tx, v)
 
 		if err != nil {
