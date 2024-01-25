@@ -51,3 +51,41 @@ func (cfg *ServerConfig) Load() ServerConfig {
 
 	return *cfg
 }
+
+type ClientConfig struct {
+	Endp           string
+	PollInterval   time.Duration
+	ReportInterval time.Duration
+	Key            string
+}
+
+func (cfg *ClientConfig) Load() ClientConfig {
+	endp := flag.String("a", "localhost:8080", "Server endpoint address:port")
+	pollInterval := flag.Float64("p", 2, "pollInterval")
+	reportInterval := flag.Float64("r", 10, "reportInterval")
+	key := flag.String("k", "", "Key")
+	flag.Parse()
+
+	if val, exist := os.LookupEnv("ADDRESS"); exist {
+		*endp = val
+	}
+	if _, exist := os.LookupEnv("REPORT_INTERVAL"); exist {
+		if val, err := strconv.ParseFloat(os.Getenv("REPORT_INTERVAL"), 64); err != nil {
+			*reportInterval = val
+		}
+	}
+	if _, exist := os.LookupEnv("POLL_INTERVAL"); exist {
+		if val, err := strconv.ParseFloat(os.Getenv("POLL_INTERVAL"), 64); err != nil {
+			*pollInterval = val
+		}
+	}
+	if val, exist := os.LookupEnv("KEY"); exist {
+		*key = val
+	}
+
+	cfg.Endp = *endp
+	cfg.PollInterval = time.Duration(*pollInterval) * time.Second
+	cfg.ReportInterval = time.Duration(*reportInterval) * time.Second
+	cfg.Key = *key
+	return *cfg
+}

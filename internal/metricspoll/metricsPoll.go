@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,6 +13,7 @@ import (
 	"net/http"
 	"runtime"
 	"time"
+	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/storage/storagecommons"
 )
 
@@ -53,13 +56,15 @@ type MetricsHandler struct {
 	metricsMap map[string]metricsData
 	counter    int64
 	client     http.Client
+	cfg        config.ClientConfig
 }
 
-func NewMetricsHandler(endp string) MetricsHandler {
-	srvEndp = endp
+func NewMetricsHandler(cfg config.ClientConfig) MetricsHandler {
+	srvEndp = cfg.Endp
 	log.Println(srvEndp)
 	return MetricsHandler{
 		metricsMap: make(map[string]metricsData),
+		cfg:        cfg,
 	}
 }
 
@@ -103,6 +108,11 @@ func (ths *MetricsHandler) SendData() {
 	req, _ := http.NewRequest(http.MethodPost, "http://"+srvEndp+"/updates/", bb)
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
+	if ths.cfg.Key != "" {
+		hash := sha256.New()
+		hash.Write(bb.Bytes())
+		req.Header.Set("HashSHA256", hex.EncodeToString(hash.Sum([]byte(ths.cfg.Key))))
+	}
 
 	//res, err := ths.client.Do(req)
 	res, err := RetryRequest(context.Background(), ths.client.Do, req)
