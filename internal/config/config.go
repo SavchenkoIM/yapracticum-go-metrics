@@ -57,6 +57,7 @@ type ClientConfig struct {
 	PollInterval   time.Duration
 	ReportInterval time.Duration
 	Key            string
+	ReqLimit       int64
 }
 
 func (cfg *ClientConfig) Load() ClientConfig {
@@ -64,6 +65,7 @@ func (cfg *ClientConfig) Load() ClientConfig {
 	pollInterval := flag.Float64("p", 2, "pollInterval")
 	reportInterval := flag.Float64("r", 10, "reportInterval")
 	key := flag.String("k", "", "Key")
+	rateLimit := flag.Int64("l", 500, "Limit of simultaneous requests")
 	flag.Parse()
 
 	if val, exist := os.LookupEnv("ADDRESS"); exist {
@@ -82,10 +84,16 @@ func (cfg *ClientConfig) Load() ClientConfig {
 	if val, exist := os.LookupEnv("KEY"); exist {
 		*key = val
 	}
+	if _, exist := os.LookupEnv("RATE_LIMIT"); exist {
+		if val, err := strconv.ParseInt(os.Getenv("POLL_INTERVAL"), 10, 0); err != nil {
+			*rateLimit = val
+		}
+	}
 
 	cfg.Endp = *endp
 	cfg.PollInterval = time.Duration(*pollInterval) * time.Second
 	cfg.ReportInterval = time.Duration(*reportInterval) * time.Second
 	cfg.Key = *key
+	cfg.ReqLimit = *rateLimit
 	return *cfg
 }

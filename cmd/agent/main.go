@@ -1,28 +1,31 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/metricspoll"
 )
 
-func runPoll(interval time.Duration, mh metricspoll.MetricsHandler) {
-	for {
-		mh.RefreshData()
-		time.Sleep(interval)
-	}
-}
+type metricsHandlerFunc func(context.Context)
 
-func runReport(interval time.Duration, mh metricspoll.MetricsHandler) {
-	for {
-		mh.SendData()
-		time.Sleep(interval)
-	}
-}
+func worker(mhf metricsHandlerFunc, name string, wg *sync.WaitGroup, ctx context.Context, interval time.Duration) {
+	defer wg.Done()
 
-func forever() {
+	tck := time.NewTicker(interval)
 	for {
-		time.Sleep(10 * time.Second)
+		select {
+		case <-ctx.Done():
+			fmt.Printf("Stopping %s routine...\n", name)
+			return
+		case <-tck.C:
+			mhf(ctx)
+		}
 	}
 }
 
@@ -31,12 +34,27 @@ func main() {
 	args := config.ClientConfig{}
 	args.Load()
 
+	parentContext := context.Background()
+	cWithCancel, cancel := context.WithCancel(parentContext)
+
 	mh := metricspoll.NewMetricsHandler(args)
-	mh.RefreshData()
+	mh.RefreshDataWithSend(cWithCancel, false)
 
-	go runPoll(args.PollInterval, mh)
-	go runReport(args.ReportInterval, mh)
+	wg := sync.WaitGroup{}
 
-	forever()
+	wg.Add(3)
+	go worker(mh.RefreshData, "poll", &wg, cWithCancel, args.PollInterval)
+	go worker(mh.RefreshDataExt, "poll ext", &wg, cWithCancel, args.PollInterval)
+	go worker(mh.SendData, "send", &wg, cWithCancel, args.PollInterval)
 
+	go catchSignals(cancel)
+
+	wg.Wait()
+}
+
+func catchSignals(cancel context.CancelFunc) {
+	terminateSignals := make(chan os.Signal, 1)
+	signal.Notify(terminateSignals, syscall.SIGINT, syscall.SIGTERM)
+	<-terminateSignals
+	cancel()
 }

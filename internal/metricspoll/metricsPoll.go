@@ -8,6 +8,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
+	"golang.org/x/sync/semaphore"
 	"log"
 	"math/rand"
 	"net/http"
@@ -57,6 +60,7 @@ type MetricsHandler struct {
 	counter    int64
 	client     http.Client
 	cfg        config.ClientConfig
+	semaphore  *semaphore.Weighted
 }
 
 func NewMetricsHandler(cfg config.ClientConfig) MetricsHandler {
@@ -65,6 +69,7 @@ func NewMetricsHandler(cfg config.ClientConfig) MetricsHandler {
 	return MetricsHandler{
 		metricsMap: make(map[string]metricsData),
 		cfg:        cfg,
+		semaphore:  semaphore.NewWeighted(cfg.ReqLimit),
 	}
 }
 
@@ -82,7 +87,7 @@ func compressGzip(b []byte) ([]byte, error) {
 	return bb.Bytes(), nil
 }
 
-func (ths *MetricsHandler) SendData() {
+func (ths *MetricsHandler) SendData(ctx context.Context) {
 	var dta storagecommons.MetricsDB
 
 	for k, v := range ths.metricsMap {
@@ -114,8 +119,14 @@ func (ths *MetricsHandler) SendData() {
 		req.Header.Set("HashSHA256", hex.EncodeToString(hash.Sum([]byte(ths.cfg.Key))))
 	}
 
+	err := ths.semaphore.Acquire(ctx, 1)
+	if err != nil {
+		return
+	}
 	//res, err := ths.client.Do(req)
-	res, err := RetryRequest(context.Background(), ths.client.Do, req)
+	res, err := RetryRequest(ctx, ths.client.Do, req)
+
+	ths.semaphore.Release(1)
 
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
@@ -126,7 +137,26 @@ func (ths *MetricsHandler) SendData() {
 
 var srvEndp string
 
-func (ths *MetricsHandler) RefreshData() {
+func (ths *MetricsHandler) RefreshDataExt(ctx context.Context) {
+	v, _ := mem.VirtualMemory()
+	ths.metricsMap["TotalMemory"] = metricsData{typ: "gauge", value: float64(v.Total)}
+	ths.metricsMap["FreeMemory"] = metricsData{typ: "gauge", value: float64(v.Free)}
+
+	cu, err := cpu.PercentWithContext(ctx, 5*time.Second, true)
+
+	if err == nil {
+		for i, v := range cu {
+			ths.metricsMap[fmt.Sprintf("CPUutilization%d", i+1)] = metricsData{typ: "gauge", value: v}
+		}
+	}
+
+}
+
+func (ths *MetricsHandler) RefreshData(ctx context.Context) {
+	ths.RefreshDataWithSend(ctx, true)
+}
+
+func (ths *MetricsHandler) RefreshDataWithSend(ctx context.Context, sendCounter bool) {
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
 
@@ -170,11 +200,22 @@ func (ths *MetricsHandler) RefreshData() {
 	req.Header.Set("Accept-Encoding", "gzip")
 
 	//res, err := ths.client.Do(req)
-	res, err := RetryRequest(context.Background(), ths.client.Do, req)
+	if sendCounter {
+		err := ths.semaphore.Acquire(ctx, 1)
+		if err != nil {
+			return
+		}
 
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
+		res, err := RetryRequest(ctx, ths.client.Do, req)
+
+		ths.semaphore.Release(1)
+
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+		defer res.Body.Close()
+
 	}
-	defer res.Body.Close()
+
 }
