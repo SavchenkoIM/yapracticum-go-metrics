@@ -13,6 +13,7 @@ type ServerConfig struct {
 	FileStoragePath string
 	Restore         bool
 	ConnString      string
+	Key             string
 }
 
 func (cfg *ServerConfig) Load() ServerConfig {
@@ -21,6 +22,7 @@ func (cfg *ServerConfig) Load() ServerConfig {
 	fileStoragePath := flag.String("f", "/tmp/metrics-db.json", "File storage path")
 	restoreData := flag.Bool("r", true, "Restore data from disc")
 	connString := flag.String("d", "", "DB Connection string")
+	key := flag.String("k", "", "Key")
 	flag.Parse()
 
 	if val, exist := os.LookupEnv("ADDRESS"); exist {
@@ -42,13 +44,16 @@ func (cfg *ServerConfig) Load() ServerConfig {
 	if val, exist := os.LookupEnv("DATABASE_DSN"); exist {
 		*connString = val
 	}
+	if val, exist := os.LookupEnv("KEY"); exist {
+		*key = val
+	}
 
 	cfg.Endp = *endp
 	cfg.FileStoragePath = *fileStoragePath
 	cfg.Restore = *restoreData
 	cfg.StoreInterval = time.Duration(*storeInterval) * time.Second
 	cfg.ConnString = *connString
-
+	cfg.Key = *key
 	return *cfg
 }
 

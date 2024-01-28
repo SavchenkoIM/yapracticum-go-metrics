@@ -82,6 +82,7 @@ func main() {
 	}
 	defer dataStorage.Close(parentContext)
 	updatemetrics.SetDataStorage(dataStorage)
+	updatemetrics.SetCongig(cfg)
 
 	getmetric.SetDataStorage(dataStorage)
 

@@ -18,7 +18,7 @@ type Storage struct {
 func InitStorage(ctx context.Context, args config.ServerConfig, logger *zap.Logger) (*Storage, error) {
 	var ms Storage
 
-	if args.ConnString == "" {
+	if args.ConnString == "" || args.ConnString == "$test$" {
 		fs, _ := filestore.New(ctx, args, logger)
 		ms.Storager = fs
 	} else {

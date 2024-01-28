@@ -1,8 +1,16 @@
 package updatemetrics
 
 import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
+	"yaprakticum-go-track2/internal/config"
+	"yaprakticum-go-track2/internal/handlers/middleware"
 	"yaprakticum-go-track2/internal/storage"
 	"yaprakticum-go-track2/internal/storage/storagecommons"
 
@@ -13,6 +21,53 @@ var dataStorage *storage.Storage
 
 func SetDataStorage(storage *storage.Storage) {
 	dataStorage = storage
+}
+
+var cfg config.ServerConfig
+
+func SetCongig(config config.ServerConfig) {
+	cfg = config
+}
+
+func checkHmacSha256(r *http.Request, cfg config.ServerConfig) error {
+
+	if cfg.Key == "" {
+		return nil
+	}
+
+	if r.Header.Get("HashSHA256") == "" {
+		middleware.Logger.Info("No HashSHA256 header provided")
+		return nil
+	}
+
+	hmacSha256, err := hex.DecodeString(r.Header.Get("HashSHA256"))
+	if err != nil {
+		middleware.Logger.Info("Incorrect Header HashSHA256")
+		return err
+	}
+
+	b := make([]byte, r.ContentLength)
+	_, err = r.Body.Read(b)
+	if err != nil {
+		middleware.Logger.Info("Error while reading BODY: " + err.Error())
+		return err
+	}
+	err = r.Body.Close()
+	if err != nil {
+		middleware.Logger.Info("Error while closing BODY: " + err.Error())
+		return err
+	}
+	r.Body = io.NopCloser(bytes.NewBuffer(b))
+
+	hmc := hmac.New(sha256.New, []byte(cfg.Key))
+	hmc.Write(b)
+
+	if !hmac.Equal(hmc.Sum(nil), hmacSha256) {
+		middleware.Logger.Info("Incorrect HMAC SHA256")
+		return errors.New("incorrect HMAC SHA256")
+	}
+
+	return nil
 }
 
 func MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
@@ -45,6 +100,12 @@ func MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
 }
 
 func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
+
+	if err := checkHmacSha256(req, cfg); err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	var dta storagecommons.Metrics
 
 	body := make([]byte, req.ContentLength)
@@ -70,6 +131,12 @@ func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 }
 
 func MultiMetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
+
+	if err := checkHmacSha256(req, cfg); err != nil {
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	var dta storagecommons.MetricsDB
 
 	body := make([]byte, req.ContentLength)

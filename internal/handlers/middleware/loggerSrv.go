@@ -8,10 +8,10 @@ import (
 	"time"
 )
 
-var logger *zap.Logger
+var Logger *zap.Logger
 
 func SetLogger(sLogger *zap.Logger) {
-	logger = sLogger
+	Logger = sLogger
 }
 
 type extResponseWriter struct {
@@ -39,7 +39,7 @@ func (erw *extResponseWriter) WriteHeader(statusCode int) {
 
 func WithLogging(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sugar := logger.Sugar()
+		sugar := Logger.Sugar()
 		ts := time.Now()
 
 		b := make([]byte, r.ContentLength)

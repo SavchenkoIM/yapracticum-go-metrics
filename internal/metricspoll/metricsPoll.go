@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -87,6 +88,14 @@ func compressGzip(b []byte) ([]byte, error) {
 	return bb.Bytes(), nil
 }
 
+func addHmacSha256(req *http.Request, body []byte, key string) {
+	if key != "" {
+		hmc := hmac.New(sha256.New, []byte(key))
+		hmc.Write(body)
+		req.Header.Set("HashSHA256", hex.EncodeToString(hmc.Sum(nil)))
+	}
+}
+
 func (ths *MetricsHandler) SendData(ctx context.Context) {
 	var dta storagecommons.MetricsDB
 
@@ -113,11 +122,8 @@ func (ths *MetricsHandler) SendData(ctx context.Context) {
 	req, _ := http.NewRequest(http.MethodPost, "http://"+srvEndp+"/updates/", bb)
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
-	if ths.cfg.Key != "" {
-		hash := sha256.New()
-		hash.Write(bb.Bytes())
-		req.Header.Set("HashSHA256", hex.EncodeToString(hash.Sum([]byte(ths.cfg.Key))))
-	}
+
+	addHmacSha256(req, jm, ths.cfg.Key)
 
 	err := ths.semaphore.Acquire(ctx, 1)
 	if err != nil {
@@ -198,6 +204,8 @@ func (ths *MetricsHandler) RefreshDataWithSend(ctx context.Context, sendCounter 
 	req, _ := http.NewRequest(http.MethodPost, "http://"+srvEndp+"/update/", bb)
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
+
+	addHmacSha256(req, jm, ths.cfg.Key)
 
 	//res, err := ths.client.Do(req)
 	if sendCounter {
