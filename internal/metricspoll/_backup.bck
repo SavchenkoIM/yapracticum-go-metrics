@@ -1,0 +1,30 @@
+
+v := int64(1)
+	jm, _ := json.Marshal(storagecommons.Metrics{MType: "counter", Delta: &v, ID: "PollCount"})
+	b, _ := compressGzip(jm)
+	bb := bytes.NewBuffer(b)
+
+	req, _ := http.NewRequest(http.MethodPost, "http://"+srvEndp+"/update/", bb)
+	req.Header.Set("Content-Encoding", "gzip")
+	req.Header.Set("Accept-Encoding", "gzip")
+
+	addHmacSha256(req, jm, ths.cfg.Key)
+
+	//res, err := ths.client.Do(req)
+	if sendCounter {
+		err := ths.semaphore.Acquire(ctx, 1)
+		if err != nil {
+			return
+		}
+
+		res, err := RetryRequest(ctx, ths.client.Do, req)
+
+		ths.semaphore.Release(1)
+
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			return
+		}
+		defer res.Body.Close()
+
+	}

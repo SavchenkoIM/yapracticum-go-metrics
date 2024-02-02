@@ -13,6 +13,7 @@ import (
 	"yaprakticum-go-track2/internal/handlers/getmetrics"
 	"yaprakticum-go-track2/internal/handlers/middleware"
 	"yaprakticum-go-track2/internal/handlers/updatemetrics"
+	"yaprakticum-go-track2/internal/shared"
 	"yaprakticum-go-track2/internal/storage"
 )
 
@@ -86,7 +87,7 @@ func main() {
 
 	getmetric.SetDataStorage(dataStorage)
 
-	middleware.SetLogger(logger)
+	shared.Logger = logger
 
 	go DumpDBFile(parentContext, args, dataStorage, logger)
 

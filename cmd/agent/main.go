@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"go.uber.org/zap"
 	"os"
 	"os/signal"
 	"sync"
@@ -10,21 +10,62 @@ import (
 	"time"
 	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/metricspoll"
+	"yaprakticum-go-track2/internal/shared"
 )
 
-type metricsHandlerFunc func(context.Context)
+type metricshandlerFunc func(context.Context)
 
-func worker(mhf metricsHandlerFunc, name string, wg *sync.WaitGroup, ctx context.Context, interval time.Duration) {
+func agentRefreshRoutine(ctx context.Context, mhf metricshandlerFunc, name string, wg *sync.WaitGroup, interval time.Duration) {
 	defer wg.Done()
 
 	tck := time.NewTicker(interval)
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Printf("Stopping %s routine...\n", name)
+			shared.Logger.Sugar().Infof("Stopping %s routine...", name)
 			return
-		case <-tck.C:
+		default:
+			<-tck.C
 			mhf(ctx)
+		}
+	}
+}
+
+func agentSendWorker(ctx context.Context, mhf metricshandlerFunc, actChan <-chan time.Time, wg *sync.WaitGroup) {
+	wg.Add(1)
+	defer wg.Done()
+
+	shared.Logger.Info("Started report worker")
+
+	for {
+		select {
+		case <-ctx.Done():
+			shared.Logger.Info("Stopping report worker...")
+			return
+		case <-actChan:
+			// Using "default: <-actChan" cause infinite lock of for loop for not started workers.
+			// We'll chat in during 1-1 zoom session
+			mhf(ctx)
+		}
+	}
+}
+
+func agentSendRoutine(ctx context.Context, mhf metricshandlerFunc, maxWorkers int, wg *sync.WaitGroup, interval time.Duration) {
+	defer wg.Done()
+
+	wChan := make(chan time.Time, 1000)
+	for i := 0; i < maxWorkers; i++ {
+		go agentSendWorker(ctx, mhf, wChan, wg)
+	}
+
+	tck := time.NewTicker(interval)
+	for {
+		select {
+		case <-ctx.Done():
+			shared.Logger.Info("Stopping reporter routine...")
+			return
+		default:
+			wChan <- <-tck.C
 		}
 	}
 }
@@ -34,18 +75,25 @@ func main() {
 	args := config.ClientConfig{}
 	args.Load()
 
+	var err error
+	shared.Logger, err = zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+
 	parentContext := context.Background()
 	cWithCancel, cancel := context.WithCancel(parentContext)
 
 	mh := metricspoll.NewMetricsHandler(args)
-	mh.RefreshDataWithSend(cWithCancel, false)
+	mh.RefreshData(cWithCancel)
 
 	wg := sync.WaitGroup{}
 
-	wg.Add(3)
-	go worker(mh.RefreshData, "poll", &wg, cWithCancel, args.PollInterval)
-	go worker(mh.RefreshDataExt, "poll ext", &wg, cWithCancel, args.PollInterval)
-	go worker(mh.SendData, "send", &wg, cWithCancel, args.PollInterval)
+	wg.Add(2) // Add 2 not in routine to enshure that wg.Wait will work
+	go agentRefreshRoutine(cWithCancel, mh.RefreshData, "main metrics", &wg, args.PollInterval)
+	go agentRefreshRoutine(cWithCancel, mh.RefreshDataExt, "extended metrics", &wg, args.PollInterval)
+	wg.Add(1) // additionally wg.Add(1) placed into each worker
+	go agentSendRoutine(cWithCancel, mh.SendData, int(args.ReqLimit), &wg, args.ReportInterval)
 
 	go catchSignals(cancel)
 

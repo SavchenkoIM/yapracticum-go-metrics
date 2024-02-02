@@ -10,7 +10,7 @@ import (
 	"io"
 	"net/http"
 	"yaprakticum-go-track2/internal/config"
-	"yaprakticum-go-track2/internal/handlers/middleware"
+	"yaprakticum-go-track2/internal/shared"
 	"yaprakticum-go-track2/internal/storage"
 	"yaprakticum-go-track2/internal/storage/storagecommons"
 
@@ -36,25 +36,25 @@ func checkHmacSha256(r *http.Request, cfg config.ServerConfig) error {
 	}
 
 	if r.Header.Get("HashSHA256") == "" {
-		middleware.Logger.Info("No HashSHA256 header provided")
+		shared.Logger.Info("No HashSHA256 header provided")
 		return nil
 	}
 
 	hmacSha256, err := hex.DecodeString(r.Header.Get("HashSHA256"))
 	if err != nil {
-		middleware.Logger.Info("Incorrect Header HashSHA256")
+		shared.Logger.Info("Incorrect Header HashSHA256")
 		return err
 	}
 
 	b := make([]byte, r.ContentLength)
 	_, err = r.Body.Read(b)
 	if err != nil {
-		middleware.Logger.Info("Error while reading BODY: " + err.Error())
+		shared.Logger.Info("Error while reading BODY: " + err.Error())
 		return err
 	}
 	err = r.Body.Close()
 	if err != nil {
-		middleware.Logger.Info("Error while closing BODY: " + err.Error())
+		shared.Logger.Info("Error while closing BODY: " + err.Error())
 		return err
 	}
 	r.Body = io.NopCloser(bytes.NewBuffer(b))
@@ -63,7 +63,7 @@ func checkHmacSha256(r *http.Request, cfg config.ServerConfig) error {
 	hmc.Write(b)
 
 	if !hmac.Equal(hmc.Sum(nil), hmacSha256) {
-		middleware.Logger.Info("Incorrect HMAC SHA256")
+		shared.Logger.Info("Incorrect HMAC SHA256")
 		return errors.New("incorrect HMAC SHA256")
 	}
 

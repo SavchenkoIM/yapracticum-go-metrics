@@ -70,7 +70,7 @@ func (cfg *ClientConfig) Load() ClientConfig {
 	pollInterval := flag.Float64("p", 2, "pollInterval")
 	reportInterval := flag.Float64("r", 10, "reportInterval")
 	key := flag.String("k", "", "Key")
-	rateLimit := flag.Int64("l", 500, "Limit of simultaneous requests")
+	rateLimit := flag.Int64("l", 5, "Limit of simultaneous requests")
 	flag.Parse()
 
 	if val, exist := os.LookupEnv("ADDRESS"); exist {
