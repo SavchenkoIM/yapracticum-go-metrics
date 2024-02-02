@@ -104,8 +104,12 @@ func addHmacSha256(req *http.Request, body []byte, key string) {
 func (ths *MetricsHandler) prepareData() storagecommons.MetricsDB {
 	var dta storagecommons.MetricsDB
 
-	ths.metricsMapMutex.RLock()
-	defer ths.metricsMapMutex.RUnlock()
+	ths.metricsMapMutex.Lock()
+	defer ths.metricsMapMutex.Unlock()
+	// Can not use RLock, as CR#1 requested not to send PollCounter during each Poll in Poll function as
+	// required in Increment 2.
+	// So agent need to send accumulated PollCounter value in Send function, and this leads to
+	// changing metricsMap["PollCount"] before each Send
 
 	ths.metricsMap["PollCount"] = metricsData{typ: "counter", ctrValue: accumPollCounter.Swap(0)}
 	for k, v := range ths.metricsMap {
