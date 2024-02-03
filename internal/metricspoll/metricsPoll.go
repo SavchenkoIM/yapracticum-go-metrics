@@ -159,14 +159,13 @@ var srvEndp string
 
 func (ths *MetricsHandler) RefreshDataExt(ctx context.Context) {
 	v, _ := mem.VirtualMemory()
+	cu, err := cpu.PercentWithContext(ctx, 5*time.Second, true)
 
 	ths.metricsMapMutex.Lock()
 	defer ths.metricsMapMutex.Unlock()
 
 	ths.metricsMap["TotalMemory"] = metricsData{typ: "gauge", value: float64(v.Total)}
 	ths.metricsMap["FreeMemory"] = metricsData{typ: "gauge", value: float64(v.Free)}
-
-	cu, err := cpu.PercentWithContext(ctx, 5*time.Second, true)
 
 	if err == nil {
 		for i, v := range cu {
