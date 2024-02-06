@@ -8,8 +8,8 @@ import (
 	"testing"
 	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/handlers/getmetrics"
-	"yaprakticum-go-track2/internal/handlers/middleware"
 	"yaprakticum-go-track2/internal/handlers/updatemetrics"
+	"yaprakticum-go-track2/internal/shared"
 	"yaprakticum-go-track2/internal/storage"
 
 	"github.com/stretchr/testify/assert"
@@ -53,7 +53,7 @@ func TestIter2Server(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	middleware.SetLogger(logger)
+	shared.Logger = logger
 
 	srv := httptest.NewServer(Router())
 	defer srv.Close()

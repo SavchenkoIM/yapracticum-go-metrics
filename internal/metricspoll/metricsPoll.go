@@ -4,15 +4,25 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
 	"math/rand"
 	"net/http"
 	"runtime"
+	"sync"
+	"sync/atomic"
 	"time"
+	"yaprakticum-go-track2/internal/config"
+	"yaprakticum-go-track2/internal/shared"
 	"yaprakticum-go-track2/internal/storage/storagecommons"
 )
+
+var accumPollCounter atomic.Int64
 
 type RetryFunc func(r *http.Request) (*http.Response, error)
 
@@ -36,10 +46,13 @@ func RetryRequest(ctx context.Context, f RetryFunc, r *http.Request) (*http.Resp
 
 		time.Sleep(timeWait)
 
-		fmt.Printf("Request retry #%d\n", i+1)
+		if i < len(waitTimes)-1 {
+			shared.Logger.Sugar().Infof("Request retry #%d", i+1)
+		} else {
+			shared.Logger.Sugar().Infof("Request failed permanently!")
+		}
 	}
 
-	fmt.Printf("Request failed permanently!\n")
 	return nil, err
 }
 
@@ -50,16 +63,19 @@ type metricsData struct {
 }
 
 type MetricsHandler struct {
-	metricsMap map[string]metricsData
-	counter    int64
-	client     http.Client
+	metricsMap      map[string]metricsData
+	counter         int64
+	client          http.Client
+	cfg             config.ClientConfig
+	metricsMapMutex sync.RWMutex
 }
 
-func NewMetricsHandler(endp string) MetricsHandler {
-	srvEndp = endp
-	log.Println(srvEndp)
+func NewMetricsHandler(cfg config.ClientConfig) MetricsHandler {
+	srvEndp = cfg.Endp
+	shared.Logger.Info(srvEndp)
 	return MetricsHandler{
 		metricsMap: make(map[string]metricsData),
+		cfg:        cfg,
 	}
 }
 
@@ -77,9 +93,25 @@ func compressGzip(b []byte) ([]byte, error) {
 	return bb.Bytes(), nil
 }
 
-func (ths *MetricsHandler) SendData() {
+func addHmacSha256(req *http.Request, body []byte, key string) {
+	if key != "" {
+		hmc := hmac.New(sha256.New, []byte(key))
+		hmc.Write(body)
+		req.Header.Set("HashSHA256", hex.EncodeToString(hmc.Sum(nil)))
+	}
+}
+
+func (ths *MetricsHandler) prepareData() storagecommons.MetricsDB {
 	var dta storagecommons.MetricsDB
 
+	ths.metricsMapMutex.Lock()
+	defer ths.metricsMapMutex.Unlock()
+	// Can not use RLock, as CR#1 requested not to send PollCounter during each Poll in Poll function as
+	// required in Increment 2.
+	// So agent need to send accumulated PollCounter value in Send function, and this leads to
+	// changing metricsMap["PollCount"] before each Send
+
+	ths.metricsMap["PollCount"] = metricsData{typ: "counter", ctrValue: accumPollCounter.Swap(0)}
 	for k, v := range ths.metricsMap {
 		k, v := k, v
 		var dta_ storagecommons.Metrics
@@ -95,6 +127,13 @@ func (ths *MetricsHandler) SendData() {
 		dta.MetricsDB = append(dta.MetricsDB, dta_)
 	}
 
+	return dta
+}
+
+func (ths *MetricsHandler) SendData(ctx context.Context) {
+
+	dta := ths.prepareData()
+
 	// Compress data
 	jm, _ := json.Marshal(dta.MetricsDB)
 	b, _ := compressGzip(jm)
@@ -104,11 +143,13 @@ func (ths *MetricsHandler) SendData() {
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
 
+	addHmacSha256(req, jm, ths.cfg.Key)
+
 	//res, err := ths.client.Do(req)
-	res, err := RetryRequest(context.Background(), ths.client.Do, req)
+	res, err := RetryRequest(ctx, ths.client.Do, req)
 
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		shared.Logger.Sugar().Infof("Error: %v", err)
 		return
 	}
 	res.Body.Close()
@@ -116,9 +157,30 @@ func (ths *MetricsHandler) SendData() {
 
 var srvEndp string
 
-func (ths *MetricsHandler) RefreshData() {
+func (ths *MetricsHandler) RefreshDataExt(ctx context.Context) {
+	v, _ := mem.VirtualMemory()
+	cu, err := cpu.PercentWithContext(ctx, 5*time.Second, true)
+
+	ths.metricsMapMutex.Lock()
+	defer ths.metricsMapMutex.Unlock()
+
+	ths.metricsMap["TotalMemory"] = metricsData{typ: "gauge", value: float64(v.Total)}
+	ths.metricsMap["FreeMemory"] = metricsData{typ: "gauge", value: float64(v.Free)}
+
+	if err == nil {
+		for i, v := range cu {
+			ths.metricsMap[fmt.Sprintf("CPUutilization%d", i+1)] = metricsData{typ: "gauge", value: v}
+		}
+	}
+
+}
+
+func (ths *MetricsHandler) RefreshData(ctx context.Context) {
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
+
+	ths.metricsMapMutex.Lock()
+	defer ths.metricsMapMutex.Unlock()
 
 	ths.metricsMap["Alloc"] = metricsData{typ: "gauge", value: float64(ms.Alloc)}
 	ths.metricsMap["BuckHashSys"] = metricsData{typ: "gauge", value: float64(ms.BuckHashSys)}
@@ -148,23 +210,8 @@ func (ths *MetricsHandler) RefreshData() {
 	ths.metricsMap["Sys"] = metricsData{typ: "gauge", value: float64(ms.Sys)}
 	ths.metricsMap["TotalAlloc"] = metricsData{typ: "gauge", value: float64(ms.TotalAlloc)}
 	ths.metricsMap["RandomValue"] = metricsData{typ: "gauge", value: rand.Float64()}
-	//ths.metricsMap[28].value = fmt.Sprintf("%d", this.counter)
+	ths.metricsMap["RandomValue"] = metricsData{typ: "gauge", value: rand.Float64()}
+	//ths.metricsMap["PollCount"] = metricsData{typ: "counter", ctrValue: 1}
+	accumPollCounter.Add(1)
 
-	v := int64(1)
-	jm, _ := json.Marshal(storagecommons.Metrics{MType: "counter", Delta: &v, ID: "PollCount"})
-	b, _ := compressGzip(jm)
-	bb := bytes.NewBuffer(b)
-
-	req, _ := http.NewRequest(http.MethodPost, "http://"+srvEndp+"/update/", bb)
-	req.Header.Set("Content-Encoding", "gzip")
-	req.Header.Set("Accept-Encoding", "gzip")
-
-	//res, err := ths.client.Do(req)
-	res, err := RetryRequest(context.Background(), ths.client.Do, req)
-
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-	defer res.Body.Close()
 }
