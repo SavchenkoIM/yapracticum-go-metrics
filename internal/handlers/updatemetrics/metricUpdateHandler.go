@@ -1,3 +1,5 @@
+// Пакет содержит обрабочтики сервера сбора метрик и алертинга
+
 package updatemetrics
 
 import (
@@ -17,18 +19,23 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// "Хранилище", с которым работает пакет
 var dataStorage *storage.Storage
 
+// Параметры конфигурации сервера
+var cfg config.ServerConfig
+
+// Инициализирует объект "хранилище", с которым работает пакет
 func SetDataStorage(storage *storage.Storage) {
 	dataStorage = storage
 }
 
-var cfg config.ServerConfig
-
-func SetCongig(config config.ServerConfig) {
+// Задаёт параметры конфигурации сервера для методов пакета
+func SetConfig(config config.ServerConfig) {
 	cfg = config
 }
 
+// Служебный метод для проверки криптографической подписи запроса
 func checkHmacSha256(r *http.Request, cfg config.ServerConfig) error {
 
 	if cfg.Key == "" {
@@ -70,6 +77,9 @@ func checkHmacSha256(r *http.Request, cfg config.ServerConfig) error {
 	return nil
 }
 
+// Запись значений метрики указанного имени и типа
+//
+// Данные для записи извлекаются из URL
 func MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
 
 	typ := chi.URLParam(req, "type")
@@ -99,6 +109,9 @@ func MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
 
 }
 
+// Запись значений метрики указанного имени и типа
+//
+// Данные для записи ожидаются в формате JSON и извлекаются из тела запроса
 func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 
 	if err := checkHmacSha256(req, cfg); err != nil {
@@ -130,6 +143,9 @@ func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 	http.Error(res, err.Error(), http.StatusBadRequest)
 }
 
+// Пакетная запись значений метрик
+//
+// Данные для записи ожидаются в формате JSON и извлекаются из тела запроса
 func MultiMetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 
 	if err := checkHmacSha256(req, cfg); err != nil {

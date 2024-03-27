@@ -7,7 +7,6 @@ import (
 	"fmt"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
-	//"runtime/metrics"
 	"strconv"
 	"time"
 	"yaprakticum-go-track2/internal/config"

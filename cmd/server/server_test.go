@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"net/http"
 	"net/http/httptest"
@@ -11,11 +12,10 @@ import (
 	"yaprakticum-go-track2/internal/handlers/updatemetrics"
 	"yaprakticum-go-track2/internal/shared"
 	"yaprakticum-go-track2/internal/storage"
-
-	"github.com/stretchr/testify/assert"
+	"yaprakticum-go-track2/internal/testhelpers"
 )
 
-func TestIter2Server(t *testing.T) {
+func performTest(t *testing.T, db *storage.Storage) {
 
 	type kv struct {
 		typ   string
@@ -43,10 +43,8 @@ func TestIter2Server(t *testing.T) {
 		{testName: "Setting value to existing gauge testVal", method: http.MethodPost, url: "/update/gauge/testVal/2", wantStatusCode: http.StatusOK, wantKv: []kv{{typ: "gauge", key: "testVal", value: float64(2)}}},
 	}
 
-	var ctx context.Context
+	ctx := context.Background()
 
-	z, _ := zap.NewDevelopment()
-	db, _ := storage.InitStorage(ctx, config.ServerConfig{}, z)
 	updatemetrics.SetDataStorage(db)
 	getmetric.SetDataStorage(db)
 	logger, err := zap.NewDevelopment()
@@ -87,4 +85,28 @@ func TestIter2Server(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestInMemory(t *testing.T) {
+	var ctx context.Context
+	z, _ := zap.NewDevelopment()
+	db, _ := storage.InitStorage(ctx, config.ServerConfig{}, z)
+	performTest(t, db)
+}
+
+func TestPostgres(t *testing.T) {
+	postgres, err := testhelpers.NewTestPostgres()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer postgres.Close()
+
+	ctx := context.Background()
+	connectionString, err := postgres.ConnectionString()
+	if err != nil {
+		t.Fatal(err)
+	}
+	z, _ := zap.NewDevelopment()
+	db, err := storage.InitStorage(ctx, config.ServerConfig{ConnString: connectionString}, z)
+	performTest(t, db)
 }

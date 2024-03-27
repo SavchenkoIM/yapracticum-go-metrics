@@ -5,6 +5,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"net/http"
+	hpprof "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -46,6 +47,13 @@ func Router() chi.Router {
 		r.Route("/ping", func(r chi.Router) {
 			r.Get("/", getmetric.PingHandler)
 		})
+		r.Route("/debug", func(r chi.Router) {
+			r.Route("/pprof", func(r chi.Router) {
+				r.Get("/", hpprof.Index)
+				r.Get("/heap", hpprof.Index)
+				r.Get("/profile", hpprof.Profile)
+			})
+		})
 	})
 	return r
 
@@ -83,7 +91,7 @@ func main() {
 	}
 	defer dataStorage.Close(parentContext)
 	updatemetrics.SetDataStorage(dataStorage)
-	updatemetrics.SetCongig(cfg)
+	updatemetrics.SetConfig(cfg)
 
 	getmetric.SetDataStorage(dataStorage)
 
@@ -113,5 +121,4 @@ func catchSignal(ctx context.Context, server *http.Server, logger *zap.Logger) {
 	dataStorage.Dump(ctx)
 	server.Shutdown(ctx)
 	//}
-
 }
