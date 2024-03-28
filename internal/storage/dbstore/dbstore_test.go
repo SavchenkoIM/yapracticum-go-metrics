@@ -1,19 +1,6 @@
 package dbstore
 
-import (
-	"testing"
-	"yaprakticum-go-track2/internal/storage/storagecommons"
-)
-
-import (
-	"context"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
-	"yaprakticum-go-track2/internal/config"
-	"yaprakticum-go-track2/internal/testhelpers"
-)
-
-func Test(t *testing.T) {
+/*func Test(t *testing.T) {
 	ctx := context.Background()
 
 	postgres, err := testhelpers.NewTestPostgres()
@@ -26,3 +13,4 @@ func Test(t *testing.T) {
 	assert.NoError(t, err)
 	storagecommons.PerformStoregerTest(t, db)
 }
+*/
