@@ -25,7 +25,7 @@ func PerformStoregerTest(t *testing.T, db Storager) {
 	t.Run("Init Gauge", func(t *testing.T) {
 		m.ID = "testGauge"
 		m.MType = "gauge"
-		var v float64 = 5.5
+		var v = 5.5
 		m.Value = &v
 		db.WriteData(ctx, m)
 

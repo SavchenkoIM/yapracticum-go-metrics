@@ -4,60 +4,17 @@ package main
 
 import (
 	"context"
-	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"net/http"
-	hpprof "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/handlers"
-	"yaprakticum-go-track2/internal/handlers/middleware"
 	"yaprakticum-go-track2/internal/shared"
 	"yaprakticum-go-track2/internal/storage"
 )
-
-// Router of the Server
-func Router() chi.Router {
-
-	r := chi.NewRouter()
-	r.Use(middleware.GzipHandler, middleware.WithLogging)
-	r.Route("/", func(r chi.Router) {
-		r.Get("/", handlers.GetAllMetricsHandler)
-		r.Route("/updates", func(r chi.Router) {
-			r.Post("/", handlers.MultiMetricsUpdateHandlerREST)
-		})
-		r.Route("/update", func(r chi.Router) {
-			r.Post("/", handlers.MetricsUpdateHandlerREST)
-			r.Post("/{type}", func(res http.ResponseWriter, req *http.Request) {
-				http.Error(res, "Not enough args (No name)", http.StatusNotFound)
-			})
-			r.Post("/{type}/{name}", func(res http.ResponseWriter, req *http.Request) {
-				http.Error(res, "Not enough args (No value)", http.StatusBadRequest)
-			})
-			r.Post("/{type}/{name}/{value}", handlers.MetricUpdateHandler)
-
-		})
-		r.Route("/value", func(r chi.Router) {
-			r.Get("/{type}/{name}", handlers.GetMetricHandler)
-			r.Post("/", handlers.GetMetricHandlerREST)
-		})
-		r.Route("/ping", func(r chi.Router) {
-			r.Get("/", handlers.PingHandler)
-		})
-		r.Route("/debug", func(r chi.Router) {
-			r.Route("/pprof", func(r chi.Router) {
-				r.Get("/", hpprof.Index)
-				r.Get("/heap", hpprof.Index)
-				r.Get("/profile", hpprof.Profile)
-			})
-		})
-	})
-	return r
-
-}
 
 // Routine for periodic dump of metrics data to energy independed storage
 func DumpDBFile(ctx context.Context, args config.ServerConfig, dataStorage *storage.Storage, logger *zap.Logger) {
@@ -101,7 +58,7 @@ func main() {
 
 	go DumpDBFile(parentContext, args, dataStorage, logger)
 
-	server := http.Server{Addr: args.Endp, Handler: Router()}
+	server := http.Server{Addr: args.Endp, Handler: handlers.Router()}
 
 	go catchSignal(parentContext, &server, dataStorage, logger)
 

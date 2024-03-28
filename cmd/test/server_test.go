@@ -1,4 +1,4 @@
-package main
+package test
 
 import (
 	"context"
@@ -51,7 +51,7 @@ func performTest(t *testing.T, db *storage.Storage) {
 	}
 	shared.Logger = logger
 
-	srv := httptest.NewServer(Router())
+	srv := httptest.NewServer(handlers.Router())
 	defer srv.Close()
 
 	for _, tt := range tests {
