@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // Agent of "metrics and alerting collecting system"
 
 package main
@@ -116,3 +117,8 @@ func catchSignals(cancel context.CancelFunc) {
 	<-terminateSignals
 	cancel()
 }
+=======
+package main
+
+func main() {}
+>>>>>>> template/up_to_iter24
