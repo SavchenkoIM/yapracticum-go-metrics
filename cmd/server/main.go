@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // Server of "metrics and alerting collecting system"
 
 package main
@@ -126,8 +125,3 @@ func catchSignal(ctx context.Context, server *http.Server, dataStorage *storage.
 	server.Shutdown(ctx)
 	//}
 }
-=======
-package main
-
-func main() {}
->>>>>>> template/up_to_iter24
