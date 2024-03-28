@@ -105,6 +105,6 @@ func TestPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	z, _ := zap.NewDevelopment()
-	db, err := storage.InitStorage(ctx, config.ServerConfig{ConnString: connectionString}, z)
+	db, _ := storage.InitStorage(ctx, config.ServerConfig{ConnString: connectionString}, z)
 	performTest(t, db)
 }
