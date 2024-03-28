@@ -11,6 +11,7 @@ import (
 	"yaprakticum-go-track2/internal/handlers"
 	"yaprakticum-go-track2/internal/shared"
 	"yaprakticum-go-track2/internal/storage"
+	"yaprakticum-go-track2/internal/testhelpers"
 )
 
 func performTest(t *testing.T, db *storage.Storage) {
@@ -91,7 +92,7 @@ func TestInMemory(t *testing.T) {
 	performTest(t, db)
 }
 
-/*func TestPostgres(t *testing.T) {
+func TestPostgres(t *testing.T) {
 	postgres, err := testhelpers.NewTestPostgres()
 	if err != nil {
 		t.Fatal(err)
@@ -106,4 +107,4 @@ func TestInMemory(t *testing.T) {
 	z, _ := zap.NewDevelopment()
 	db, _ := storage.InitStorage(ctx, config.ServerConfig{ConnString: connectionString}, z)
 	performTest(t, db)
-}*/
+}

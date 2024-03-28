@@ -9,7 +9,7 @@ import (
 	"yaprakticum-go-track2/internal/testhelpers"
 )
 
-/*func BenchmarkPostgres(b *testing.B) {
+func BenchmarkPostgres(b *testing.B) {
 	b.StopTimer()
 	postgres, err := testhelpers.NewTestPostgres()
 	if err != nil {
@@ -41,7 +41,7 @@ import (
 	for i := 0; i < b.N; i++ {
 		db.WriteData(ctx, m)
 	}
-}*/
+}
 
 func BenchmarkInMemory(b *testing.B) {
 	b.StopTimer()
