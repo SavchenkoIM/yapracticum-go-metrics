@@ -21,7 +21,7 @@ func BenchmarkPostgres(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	db, err := InitStorage(ctx, config.ServerConfig{
+	db, _ := InitStorage(ctx, config.ServerConfig{
 		ConnString: connectionString,
 	}, logger)
 	b.StartTimer()
@@ -32,9 +32,7 @@ func BenchmarkPostgres(b *testing.B) {
 		b.StartTimer()
 	}(postgres)
 
-	var val float64
-
-	val = 20
+	var val float64 = 20
 	var m storagecommons.Metrics
 	m.ID = "g1"
 	m.MType = "gauge"
@@ -52,8 +50,7 @@ func BenchmarkInMemory(b *testing.B) {
 	db, _ := InitStorage(ctx, config.ServerConfig{}, logger)
 	b.StartTimer()
 
-	var val float64
-	val = 20
+	var val float64 = 20
 	var m storagecommons.Metrics
 	m.ID = "g1"
 	m.MType = "gauge"

@@ -45,7 +45,6 @@ func performTest(t *testing.T, db *storage.Storage) {
 	ctx := context.Background()
 
 	handlers.SetDataStorage(db)
-	handlers.getmetric.SetDataStorage(db)
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		panic(err)
