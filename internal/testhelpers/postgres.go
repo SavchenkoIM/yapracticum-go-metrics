@@ -12,12 +12,12 @@ import (
 )
 
 // Docker container with Postgres DB
-type TestPostgres struct {
+type PostgresContainer struct {
 	instance testcontainers.Container
 }
 
-// Constructor for TestPostgres
-func NewTestPostgres() (*TestPostgres, error) {
+// Constructor for PostgresContainer
+func NewPostgresContainer() (*PostgresContainer, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	testcontainers.Logger = log.New(&ioutils.NopWriter{}, "", 0)
@@ -40,13 +40,13 @@ func NewTestPostgres() (*TestPostgres, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &TestPostgres{
+	return &PostgresContainer{
 		instance: postgres,
 	}, nil
 }
 
 // Returns mapped Postgres 5432 port
-func (db *TestPostgres) Port() (int, error) {
+func (db *PostgresContainer) Port() (int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	p, err := db.instance.MappedPort(ctx, "5432")
@@ -57,7 +57,7 @@ func (db *TestPostgres) Port() (int, error) {
 }
 
 // Connection string for containerized Postgres instance
-func (db *TestPostgres) ConnectionString() (string, error) {
+func (db *PostgresContainer) ConnectionString() (string, error) {
 	port, err := db.Port()
 	if err != nil {
 		return "", err
@@ -65,14 +65,14 @@ func (db *TestPostgres) ConnectionString() (string, error) {
 	return fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/postgres", port), nil
 }
 
-// Destructor for TestPostgres
-func (db *TestPostgres) Close() error {
+// Destructor for PostgresContainer
+func (db *PostgresContainer) Close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	return db.instance.Terminate(ctx)
 }
 
 // Returns containerized Postgres host
-func (db *TestPostgres) Host() string {
+func (db *PostgresContainer) Host() string {
 	return "localhost"
 }

@@ -11,7 +11,7 @@ import (
 
 func BenchmarkPostgres(b *testing.B) {
 	b.StopTimer()
-	postgres, err := testhelpers.NewTestPostgres()
+	postgres, err := testhelpers.NewPostgresContainer()
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -26,7 +26,7 @@ func BenchmarkPostgres(b *testing.B) {
 	}, logger)
 	b.StartTimer()
 
-	defer func(postgres *testhelpers.TestPostgres) {
+	defer func(postgres *testhelpers.PostgresContainer) {
 		b.StopTimer()
 		postgres.Close()
 		b.StartTimer()

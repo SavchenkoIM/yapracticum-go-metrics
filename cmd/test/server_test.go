@@ -93,7 +93,7 @@ func TestInMemory(t *testing.T) {
 }
 
 func TestPostgres(t *testing.T) {
-	postgres, err := testhelpers.NewTestPostgres()
+	postgres, err := testhelpers.NewPostgresContainer()
 	if err != nil {
 		t.Fatal(err)
 	}

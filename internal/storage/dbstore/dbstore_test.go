@@ -13,7 +13,7 @@ import (
 func Test(t *testing.T) {
 	ctx := context.Background()
 
-	postgres, err := testhelpers.NewTestPostgres()
+	postgres, err := testhelpers.NewPostgresContainer()
 	assert.NoError(t, err)
 	connectionString, err := postgres.ConnectionString()
 	assert.NoError(t, err)
