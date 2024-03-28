@@ -1,4 +1,4 @@
-package getmetric
+package handlers
 
 import (
 	"encoding/json"
@@ -6,18 +6,12 @@ import (
 	"html/template"
 	"net/http"
 	"strconv"
-	"yaprakticum-go-track2/internal/storage"
 	"yaprakticum-go-track2/internal/storage/storagecommons"
 
 	"github.com/go-chi/chi/v5"
 )
 
-var dataStorage *storage.Storage
-
-func SetDataStorage(storage *storage.Storage) {
-	dataStorage = storage
-}
-
+// Checks if storage link is up
 func PingHandler(res http.ResponseWriter, req *http.Request) {
 	if err := dataStorage.Ping(req.Context()); err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
@@ -25,6 +19,7 @@ func PingHandler(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusOK)
 }
 
+// Returns response of html type with all stored metrics data displayed
 func GetAllMetricsHandler(res http.ResponseWriter, req *http.Request) {
 
 	type Counter struct {
@@ -81,6 +76,7 @@ GAUGES:</br>
 
 }
 
+// Returns requested metric value (text format)
 func GetMetricHandler(res http.ResponseWriter, req *http.Request) {
 
 	typ := chi.URLParam(req, "type")
@@ -108,6 +104,7 @@ func GetMetricHandler(res http.ResponseWriter, req *http.Request) {
 
 }
 
+// Returns requested metric value (JSON format)
 func GetMetricHandlerREST(res http.ResponseWriter, req *http.Request) {
 
 	var dta storagecommons.Metrics

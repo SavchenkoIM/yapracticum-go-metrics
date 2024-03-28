@@ -8,8 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 	"yaprakticum-go-track2/internal/config"
-	"yaprakticum-go-track2/internal/handlers/getmetrics"
-	"yaprakticum-go-track2/internal/handlers/updatemetrics"
+	"yaprakticum-go-track2/internal/handlers"
 	"yaprakticum-go-track2/internal/shared"
 	"yaprakticum-go-track2/internal/storage"
 	"yaprakticum-go-track2/internal/testhelpers"
@@ -45,8 +44,8 @@ func performTest(t *testing.T, db *storage.Storage) {
 
 	ctx := context.Background()
 
-	updatemetrics.SetDataStorage(db)
-	getmetric.SetDataStorage(db)
+	handlers.SetDataStorage(db)
+	handlers.getmetric.SetDataStorage(db)
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		panic(err)

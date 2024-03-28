@@ -11,10 +11,12 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
+// Docker container with Postgres DB
 type TestPostgres struct {
 	instance testcontainers.Container
 }
 
+// Constructor for TestPostgres
 func NewTestPostgres() (*TestPostgres, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -43,6 +45,7 @@ func NewTestPostgres() (*TestPostgres, error) {
 	}, nil
 }
 
+// Returns mapped Postgres 5432 port
 func (db *TestPostgres) Port() (int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -53,6 +56,7 @@ func (db *TestPostgres) Port() (int, error) {
 	return p.Int(), nil
 }
 
+// Connection string for containerized Postgres instance
 func (db *TestPostgres) ConnectionString() (string, error) {
 	port, err := db.Port()
 	if err != nil {
@@ -61,12 +65,14 @@ func (db *TestPostgres) ConnectionString() (string, error) {
 	return fmt.Sprintf("postgres://postgres:postgres@127.0.0.1:%d/postgres", port), nil
 }
 
+// Destructor for TestPostgres
 func (db *TestPostgres) Close() error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	return db.instance.Terminate(ctx)
 }
 
+// Returns containerized Postgres host
 func (db *TestPostgres) Host() string {
 	return "localhost"
 }

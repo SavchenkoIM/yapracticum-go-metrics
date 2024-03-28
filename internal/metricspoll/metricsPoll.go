@@ -1,3 +1,5 @@
+// Package contains tools for calculating and sending metrics data for Agent
+
 package metricspoll
 
 import (
@@ -22,10 +24,13 @@ import (
 	"yaprakticum-go-track2/internal/storage/storagecommons"
 )
 
+// Counter of refresh data calls since last send
 var accumPollCounter atomic.Int64
 
+// Request function prototype for RetryRequest method
 type RetryFunc func(r *http.Request) (*http.Response, error)
 
+// Calls function f with retry in case of error returned
 func RetryRequest(ctx context.Context, f RetryFunc, r *http.Request) (*http.Response, error) {
 	var err error
 	var res *http.Response
@@ -56,12 +61,14 @@ func RetryRequest(ctx context.Context, f RetryFunc, r *http.Request) (*http.Resp
 	return nil, err
 }
 
+// Describes single metric
 type metricsData struct {
 	typ      string
 	value    float64
 	ctrValue int64
 }
 
+// Layer for complex metrics poll and send handling
 type MetricsHandler struct {
 	metricsMap      map[string]metricsData
 	counter         int64
@@ -70,6 +77,7 @@ type MetricsHandler struct {
 	metricsMapMutex sync.RWMutex
 }
 
+// Constructor for MetricsHandler
 func NewMetricsHandler(cfg config.ClientConfig) MetricsHandler {
 	srvEndp = cfg.Endp
 	shared.Logger.Info(srvEndp)
@@ -79,6 +87,7 @@ func NewMetricsHandler(cfg config.ClientConfig) MetricsHandler {
 	}
 }
 
+// Auxilary function for compressing request body
 func compressGzip(b []byte) ([]byte, error) {
 	var bb bytes.Buffer
 	gz := gzip.NewWriter(&bb)
@@ -93,6 +102,7 @@ func compressGzip(b []byte) ([]byte, error) {
 	return bb.Bytes(), nil
 }
 
+// Auxilary function for adding HMAC signature to request
 func addHmacSha256(req *http.Request, body []byte, key string) {
 	if key != "" {
 		hmc := hmac.New(sha256.New, []byte(key))
@@ -101,6 +111,7 @@ func addHmacSha256(req *http.Request, body []byte, key string) {
 	}
 }
 
+// Filling JSON marshallable structure to be sent to Server
 func (ths *MetricsHandler) prepareData() storagecommons.MetricsDB {
 	var dta storagecommons.MetricsDB
 
@@ -130,6 +141,7 @@ func (ths *MetricsHandler) prepareData() storagecommons.MetricsDB {
 	return dta
 }
 
+// Sends data to server
 func (ths *MetricsHandler) SendData(ctx context.Context) {
 
 	dta := ths.prepareData()
@@ -157,6 +169,7 @@ func (ths *MetricsHandler) SendData(ctx context.Context) {
 
 var srvEndp string
 
+// Calculates extended metrics data
 func (ths *MetricsHandler) RefreshDataExt(ctx context.Context) {
 	v, _ := mem.VirtualMemory()
 	cu, err := cpu.PercentWithContext(ctx, 5*time.Second, true)
@@ -175,6 +188,7 @@ func (ths *MetricsHandler) RefreshDataExt(ctx context.Context) {
 
 }
 
+// Retrieves main metrics data
 func (ths *MetricsHandler) RefreshData(ctx context.Context) {
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)

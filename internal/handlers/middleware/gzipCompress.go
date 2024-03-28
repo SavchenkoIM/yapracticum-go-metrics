@@ -8,23 +8,28 @@ import (
 	"strings"
 )
 
+// ResponseWriter with gzip compression
 type gzipResponseWriter struct {
 	http.ResponseWriter
 	w *gzip.Writer
 }
 
+// Overloaded ResponseWriter's Write method
 func (gzw gzipResponseWriter) Write(b []byte) (int, error) {
 	return gzw.w.Write(b)
 }
 
+// Overloaded ResponseWriter's Close method
 func (gzw gzipResponseWriter) Close() error {
 	return gzw.w.Close()
 }
 
+// Constructor for gzipResponseWriter
 func newGzipResponseWriter(w http.ResponseWriter) gzipResponseWriter {
 	return gzipResponseWriter{ResponseWriter: w, w: gzip.NewWriter(w)}
 }
 
+// Middleware function that decompresses compressed request body and compresses response body if client supports compressed response
 func GzipHandler(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 

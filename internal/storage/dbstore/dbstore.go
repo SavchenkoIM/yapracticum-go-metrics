@@ -13,6 +13,7 @@ import (
 	"yaprakticum-go-track2/internal/storage/storagecommons"
 )
 
+// Postgres DB storage description (see Storager)
 type DBStore struct {
 	Gauges    *MetricFloat64
 	Counters  *MetricInt64Sum

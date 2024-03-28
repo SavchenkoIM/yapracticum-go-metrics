@@ -12,6 +12,7 @@ import (
 	"yaprakticum-go-track2/internal/storage/storagecommons"
 )
 
+// InMemory, file-backed storage description (see Storager)
 type FileStore struct {
 	Gauges    *MetricFloat64
 	Counters  *MetricInt64Sum

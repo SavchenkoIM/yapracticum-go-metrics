@@ -1,3 +1,5 @@
+// Package contains tools for parsing Agent and Server runtime configuration data
+
 package config
 
 import (
@@ -7,6 +9,7 @@ import (
 	"time"
 )
 
+// Server configuration
 type ServerConfig struct {
 	Endp            string
 	StoreInterval   time.Duration
@@ -16,6 +19,7 @@ type ServerConfig struct {
 	Key             string
 }
 
+// Parses Server configuration
 func (cfg *ServerConfig) Load() ServerConfig {
 	endp := flag.String("a", ":8080", "Server endpoint address:port")
 	storeInterval := flag.Int64("i", 300, "Store interval")
@@ -57,6 +61,7 @@ func (cfg *ServerConfig) Load() ServerConfig {
 	return *cfg
 }
 
+// Agent configuration
 type ClientConfig struct {
 	Endp           string
 	PollInterval   time.Duration
@@ -65,6 +70,7 @@ type ClientConfig struct {
 	ReqLimit       int64
 }
 
+// Parses Agent configuration
 func (cfg *ClientConfig) Load() ClientConfig {
 	endp := flag.String("a", "localhost:8080", "Server endpoint address:port")
 	pollInterval := flag.Float64("p", 2, "pollInterval")

@@ -5,6 +5,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// Returns custom zap logger. Useful not only for tests, but let it be placed here for now.
 func GetCustomZap(level zapcore.Level) *zap.Logger {
 	encoderCfg := zap.NewProductionEncoderConfig()
 	encoderCfg.TimeKey = "timestamp"

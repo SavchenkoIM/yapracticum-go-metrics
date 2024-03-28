@@ -1,6 +1,4 @@
-// Пакет содержит обрабочтики сервера сбора метрик и алертинга
-
-package updatemetrics
+package handlers
 
 import (
 	"bytes"
@@ -13,29 +11,12 @@ import (
 	"net/http"
 	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/shared"
-	"yaprakticum-go-track2/internal/storage"
 	"yaprakticum-go-track2/internal/storage/storagecommons"
 
 	"github.com/go-chi/chi/v5"
 )
 
-// "Хранилище", с которым работает пакет
-var dataStorage *storage.Storage
-
-// Параметры конфигурации сервера
-var cfg config.ServerConfig
-
-// Инициализирует объект "хранилище", с которым работает пакет
-func SetDataStorage(storage *storage.Storage) {
-	dataStorage = storage
-}
-
-// Задаёт параметры конфигурации сервера для методов пакета
-func SetConfig(config config.ServerConfig) {
-	cfg = config
-}
-
-// Служебный метод для проверки криптографической подписи запроса
+// Auxilary method for checking HMAC signature of request
 func checkHmacSha256(r *http.Request, cfg config.ServerConfig) error {
 
 	if cfg.Key == "" {
@@ -77,9 +58,9 @@ func checkHmacSha256(r *http.Request, cfg config.ServerConfig) error {
 	return nil
 }
 
-// Запись значений метрики указанного имени и типа
+// Storing metric data of given type and name
 //
-// Данные для записи извлекаются из URL
+// Metric data is extracted from URL
 func MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
 
 	typ := chi.URLParam(req, "type")
@@ -109,9 +90,9 @@ func MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
 
 }
 
-// Запись значений метрики указанного имени и типа
+// Storing metric data of given type and name
 //
-// Данные для записи ожидаются в формате JSON и извлекаются из тела запроса
+// Metric data is expected to be JSON string and is extracted from request body
 func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 
 	if err := checkHmacSha256(req, cfg); err != nil {
@@ -143,9 +124,9 @@ func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 	http.Error(res, err.Error(), http.StatusBadRequest)
 }
 
-// Пакетная запись значений метрик
+// Packet storing of metrics data
 //
-// Данные для записи ожидаются в формате JSON и извлекаются из тела запроса
+// Data is expected to be JSON string and is extracted from request body
 func MultiMetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 
 	if err := checkHmacSha256(req, cfg); err != nil {
