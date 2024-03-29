@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/docker/docker/pkg/ioutils"
 	"log"
-	"math/rand"
 	"sync/atomic"
 	"time"
 
@@ -23,7 +22,7 @@ type PostgresContainer struct {
 // Constructor for PostgresContainer
 func NewPostgresContainer() (*PostgresContainer, error) {
 
-	time.Sleep(time.Duration(rand.Int31n(10)*5000) * time.Millisecond) // Temp workaround for go test ./... bug
+	//time.Sleep(time.Duration(rand.Int31n(10)*5000) * time.Millisecond) // Temp workaround for go test ./... bug
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
