@@ -1,12 +1,8 @@
 package dbstore
 
-import (
-	"testing"
-)
-
-func Test(t *testing.T) {
-	return // To complete github test2B
-	/*ctx := context.Background()
+// To complete github test2B
+/*func Test(t *testing.T) {
+	ctx := context.Background()
 
 	postgres, err := testhelpers.NewPostgresContainer()
 	assert.NoError(t, err)
@@ -16,5 +12,6 @@ func Test(t *testing.T) {
 	logger := testhelpers.GetCustomZap(zap.ErrorLevel)
 	db, err := New(ctx, config.ServerConfig{ConnString: connectionString}, logger)
 	assert.NoError(t, err)
-	storagecommons.PerformStoregerTest(t, db)*/
+	storagecommons.PerformStoregerTest(t, db)
 }
+*/

@@ -91,9 +91,9 @@ func TestInMemory(t *testing.T) {
 	performTest(t, db)
 }
 
-func TestPostgres(t *testing.T) {
-	return // // To complete github test2B
-	/*postgres, err := testhelpers.NewPostgresContainer()
+// To complete github test2B
+/*func TestPostgres(t *testing.T) {
+	postgres, err := testhelpers.NewPostgresContainer()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,5 +106,5 @@ func TestPostgres(t *testing.T) {
 	}
 	z, _ := zap.NewDevelopment()
 	db, _ := storage.InitStorage(ctx, config.ServerConfig{ConnString: connectionString}, z)
-	performTest(t, db)*/
-}
+	performTest(t, db)
+}*/
