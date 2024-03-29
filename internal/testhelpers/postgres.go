@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"github.com/docker/docker/pkg/ioutils"
 	"log"
+	"math/rand"
+	"sync/atomic"
 	"time"
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
+
+var constructorRunning atomic.Bool
 
 // Docker container with Postgres DB
 type PostgresContainer struct {
@@ -18,13 +22,15 @@ type PostgresContainer struct {
 
 // Constructor for PostgresContainer
 func NewPostgresContainer() (*PostgresContainer, error) {
+
+	time.Sleep(time.Duration(rand.Int31n(10)*500) * time.Millisecond) // Temp workaround for go test ./... bug
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	testcontainers.Logger = log.New(&ioutils.NopWriter{}, "", 0)
 	req := testcontainers.ContainerRequest{
 		Image:        "postgres:14",
 		ExposedPorts: []string{"5432/tcp"},
-		AutoRemove:   true,
 		Env: map[string]string{
 			"POSTGRES_USER":     "postgres",
 			"POSTGRES_PASSWORD": "postgres",
