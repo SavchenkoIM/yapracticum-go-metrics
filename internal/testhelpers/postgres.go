@@ -23,7 +23,7 @@ type PostgresContainer struct {
 // Constructor for PostgresContainer
 func NewPostgresContainer() (*PostgresContainer, error) {
 
-	time.Sleep(time.Duration(rand.Int31n(10)*500) * time.Millisecond) // Temp workaround for go test ./... bug
+	time.Sleep(time.Duration(rand.Int31n(10)*1000) * time.Millisecond) // Temp workaround for go test ./... bug
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
