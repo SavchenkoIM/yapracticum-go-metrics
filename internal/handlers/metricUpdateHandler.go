@@ -108,6 +108,7 @@ func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 
 	err := json.Unmarshal(body, &dta)
 	if err != nil {
+		println(err.Error())
 		http.Error(res, "Error parsing JSON", http.StatusBadRequest)
 		return
 	}

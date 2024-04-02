@@ -173,7 +173,8 @@ func (ms *FileStore) Dump(ctx context.Context) error {
 		})
 	}
 
-	jsn, err := json.MarshalIndent(mdb, "", "    ")
+	//jsn, err := json.MarshalIndent(mdb, "", "    ")
+	jsn, err := json.Marshal(mdb)
 	if err != nil {
 		return err
 	}
