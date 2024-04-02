@@ -43,7 +43,7 @@ func BenchmarkAddGaugePostgres(b *testing.B) {
 	}
 	ctx := context.Background()
 	logger := testhelpers.GetCustomZap(zap.ErrorLevel)
-	connectionString, err := postgres.ConnectionString()
+	connectionString, _ := postgres.ConnectionString()
 	dataStorage, _ = storage.InitStorage(ctx, config.ServerConfig{ConnString: connectionString}, logger)
 	b.StartTimer()
 
