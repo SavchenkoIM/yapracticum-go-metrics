@@ -119,6 +119,7 @@ func (ths *MetricFloat64) getValueDB(ctx context.Context, keys ...string) (map[s
 
 	res := make(map[string]float64)
 
+	var err error
 	rows, err := ths.db.QueryContext(ctx, query, ks...)
 
 	if err != nil {
@@ -133,7 +134,7 @@ func (ths *MetricFloat64) getValueDB(ctx context.Context, keys ...string) (map[s
 		val float64
 	)
 	for rows.Next() {
-		err := rows.Scan(&key, &val)
+		err = rows.Scan(&key, &val)
 		if err != nil {
 			return nil, err
 		}
@@ -291,6 +292,7 @@ func (ths *MetricInt64Sum) getValueDB(ctx context.Context, keys ...string) (map[
 
 	res := make(map[string]int64)
 
+	var err error
 	rows, err := ths.db.QueryContext(ctx, query, ks...)
 
 	if err != nil {
@@ -305,7 +307,7 @@ func (ths *MetricInt64Sum) getValueDB(ctx context.Context, keys ...string) (map[
 		val int64
 	)
 	for rows.Next() {
-		err := rows.Scan(&key, &val)
+		err = rows.Scan(&key, &val)
 		if err != nil {
 			return nil, err
 		}
@@ -390,10 +392,10 @@ func (ms *DBStore) WriteDataMulty(ctx context.Context, metrics storagecommons.Me
 	}
 
 	for _, v := range metrics.MetricsDB {
-		_, err := ms.writeDataTX(ctx, tx, v)
+		_, err = ms.writeDataTX(ctx, tx, v)
 
 		if err != nil {
-			err := tx.Rollback()
+			err = tx.Rollback()
 			if err != nil {
 				return err
 			}

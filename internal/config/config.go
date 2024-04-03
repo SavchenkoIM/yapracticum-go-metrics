@@ -12,11 +12,11 @@ import (
 // Server configuration
 type ServerConfig struct {
 	Endp            string
-	StoreInterval   time.Duration
 	FileStoragePath string
-	Restore         bool
 	ConnString      string
 	Key             string
+	StoreInterval   time.Duration
+	Restore         bool
 }
 
 // Parses Server configuration
@@ -64,10 +64,10 @@ func (cfg *ServerConfig) Load() ServerConfig {
 // Agent configuration
 type ClientConfig struct {
 	Endp           string
-	PollInterval   time.Duration
-	ReportInterval time.Duration
 	Key            string
 	ReqLimit       int64
+	PollInterval   time.Duration
+	ReportInterval time.Duration
 }
 
 // Parses Agent configuration
