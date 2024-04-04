@@ -1,6 +1,11 @@
 package main
 
 import (
+	"fmt"
+	"github.com/gordonklaus/ineffassign/pkg/ineffassign"
+	"github.com/timakin/bodyclose/passes/bodyclose"
+	"go/ast"
+	"go/token"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/multichecker"
 	"golang.org/x/tools/go/analysis/passes/appends"
@@ -19,7 +24,6 @@ import (
 	"golang.org/x/tools/go/analysis/passes/defers"
 	"golang.org/x/tools/go/analysis/passes/directive"
 	"golang.org/x/tools/go/analysis/passes/errorsas"
-	//"golang.org/x/tools/go/analysis/passes/fieldalignment"
 	"golang.org/x/tools/go/analysis/passes/findcall"
 	"golang.org/x/tools/go/analysis/passes/framepointer"
 	"golang.org/x/tools/go/analysis/passes/httpmux"
@@ -54,17 +58,77 @@ import (
 	"strings"
 )
 
+// Analyzer: Checks main function of main package for direct Exit() call
+var ExitCallInMainAnalyzer = &analysis.Analyzer{
+	Name: "exitinmain",
+	Doc:  "check for call of os.Exit in main func of main package",
+	Run:  exitCallInMainCheckRun,
+}
+
+// Main function of ExitCallInMainAnalyzer
+func exitCallInMainCheckRun(pass *analysis.Pass) (interface{}, error) {
+
+	for _, file := range pass.Files {
+		isExitCalledFile(file, pass.Fset)
+	}
+
+	return nil, nil
+}
+
+// Auxilary function for ExitCallInMainAnalyzer: searches Exit() call in given function fun
+func isExitCalledFunc(fun *ast.FuncDecl, fset *token.FileSet) bool {
+	found := false
+
+	ast.Inspect(fun, func(n ast.Node) bool {
+		if c, ok := n.(*ast.SelectorExpr); ok {
+			if found = c.Sel.Name == "Exit"; found {
+				fmt.Printf("%v: Found direct call of Exit in main function\n", fset.Position(c.Pos()))
+				return false
+			}
+		}
+		return true
+	})
+
+	return found
+}
+
+// Auxilary function for ExitCallInMainAnalyzer: searches entry point (main() function of package main)
+func isExitCalledFile(file *ast.File, fset *token.FileSet) bool {
+
+	found := false
+
+	if file == nil {
+		return false
+	}
+
+	if file.Name.Name != "main" {
+		return false
+	}
+
+	ast.Inspect(file, func(n ast.Node) bool {
+		if c, ok := n.(*ast.FuncDecl); ok && c.Name.Name == "main" {
+			found = isExitCalledFunc(n.(*ast.FuncDecl), fset)
+			return false
+		}
+		return true
+	})
+
+	return found
+}
+
+// Custom analyzer (implements Increment 19 requirements)
 func main() {
 	// Rules slice
 	var mychecks []*analysis.Analyzer
 
-	// All rules, starting with "SA" from staticcheck and "S1000" analyzer
+	// All rules, starting with "SA" and "S1000" from staticcheck
 	for _, v := range staticcheck.Analyzers {
 		if strings.HasPrefix(v.Analyzer.Name, "SA") || v.Analyzer.Name == "S1000" {
 			mychecks = append(mychecks, v.Analyzer)
 		}
 	}
 
+	// All analyzers from tools/go/analysys package
 	mychecks = append(mychecks, appends.Analyzer)
 	mychecks = append(mychecks, asmdecl.Analyzer)
 	mychecks = append(mychecks, assign.Analyzer)
@@ -112,6 +176,13 @@ func main() {
 	mychecks = append(mychecks, unusedresult.Analyzer)
 	mychecks = append(mychecks, unusedwrite.Analyzer)
 	mychecks = append(mychecks, usesgenerics.Analyzer)
+
+	// My own analyzer for checking of Exit call in main func
+	mychecks = append(mychecks, ExitCallInMainAnalyzer)
+
+	// Two ore more other public analyzers
+	mychecks = append(mychecks, ineffassign.Analyzer)
+	mychecks = append(mychecks, bodyclose.Analyzer)
 
 	multichecker.Main(
 		mychecks...,

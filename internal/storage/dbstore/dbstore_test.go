@@ -12,6 +12,6 @@ package dbstore
 	logger := testhelpers.GetCustomZap(zap.ErrorLevel)
 	db, err := New(ctx, config.ServerConfig{ConnString: connectionString}, logger)
 	assert.NoError(t, err)
-	storagecommons.PerformStoregerTest(t, db)
+	storagecommons.PerformStoragerTest(t, db)
 }
 */
