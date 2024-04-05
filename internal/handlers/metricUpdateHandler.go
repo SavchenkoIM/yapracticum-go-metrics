@@ -1,4 +1,4 @@
-package updatemetrics
+package handlers
 
 import (
 	"bytes"
@@ -11,24 +11,12 @@ import (
 	"net/http"
 	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/shared"
-	"yaprakticum-go-track2/internal/storage"
 	"yaprakticum-go-track2/internal/storage/storagecommons"
 
 	"github.com/go-chi/chi/v5"
 )
 
-var dataStorage *storage.Storage
-
-func SetDataStorage(storage *storage.Storage) {
-	dataStorage = storage
-}
-
-var cfg config.ServerConfig
-
-func SetCongig(config config.ServerConfig) {
-	cfg = config
-}
-
+// Auxilary method for checking HMAC signature of request
 func checkHmacSha256(r *http.Request, cfg config.ServerConfig) error {
 
 	if cfg.Key == "" {
@@ -70,6 +58,9 @@ func checkHmacSha256(r *http.Request, cfg config.ServerConfig) error {
 	return nil
 }
 
+// Storing metric data of given type and name
+//
+// Metric data is extracted from URL
 func MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
 
 	typ := chi.URLParam(req, "type")
@@ -99,6 +90,9 @@ func MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
 
 }
 
+// Storing metric data of given type and name
+//
+// Metric data is expected to be JSON string and is extracted from request body
 func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 
 	if err := checkHmacSha256(req, cfg); err != nil {
@@ -114,6 +108,7 @@ func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 
 	err := json.Unmarshal(body, &dta)
 	if err != nil {
+		println(err.Error())
 		http.Error(res, "Error parsing JSON", http.StatusBadRequest)
 		return
 	}
@@ -130,6 +125,9 @@ func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 	http.Error(res, err.Error(), http.StatusBadRequest)
 }
 
+// Packet storing of metrics data
+//
+// Data is expected to be JSON string and is extracted from request body
 func MultiMetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 
 	if err := checkHmacSha256(req, cfg); err != nil {

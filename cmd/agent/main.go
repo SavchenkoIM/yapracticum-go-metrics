@@ -1,3 +1,5 @@
+// Agent of "metrics and alerting collecting system"
+
 package main
 
 import (
@@ -13,8 +15,10 @@ import (
 	"yaprakticum-go-track2/internal/shared"
 )
 
+// Metrics handler function prototype (see package metricspoll)
 type metricshandlerFunc func(context.Context)
 
+// Routine for automatic refreshing of runtime metrics data
 func agentRefreshRoutine(ctx context.Context, mhf metricshandlerFunc, name string, wg *sync.WaitGroup, interval time.Duration) {
 	defer wg.Done()
 
@@ -31,6 +35,9 @@ func agentRefreshRoutine(ctx context.Context, mhf metricshandlerFunc, name strin
 	}
 }
 
+// Routine worker for sending collected data to server of the system
+//
+// Those workers are started by agentSendRoutine function
 func agentSendWorker(ctx context.Context, mhf metricshandlerFunc, actChan <-chan time.Time, wg *sync.WaitGroup) {
 	wg.Add(1)
 	defer wg.Done()
@@ -50,6 +57,7 @@ func agentSendWorker(ctx context.Context, mhf metricshandlerFunc, actChan <-chan
 	}
 }
 
+// Starts maxWorkers agentSendWorker workers
 func agentSendRoutine(ctx context.Context, mhf metricshandlerFunc, maxWorkers int, wg *sync.WaitGroup, interval time.Duration) {
 	defer wg.Done()
 
@@ -70,6 +78,7 @@ func agentSendRoutine(ctx context.Context, mhf metricshandlerFunc, maxWorkers in
 	}
 }
 
+// Entry point of Agent
 func main() {
 
 	args := config.ClientConfig{}
@@ -100,6 +109,7 @@ func main() {
 	wg.Wait()
 }
 
+// Handler of app termination signals
 func catchSignals(cancel context.CancelFunc) {
 	terminateSignals := make(chan os.Signal, 1)
 	signal.Notify(terminateSignals, syscall.SIGINT, syscall.SIGTERM)

@@ -1,3 +1,5 @@
+// Implements storage interface and constructor
+
 package storage
 
 import (
@@ -9,12 +11,12 @@ import (
 	"yaprakticum-go-track2/internal/storage/storagecommons"
 )
 
-// Storage
-
+// Storage interface type
 type Storage struct {
 	storagecommons.Storager
 }
 
+// Storage constructor
 func InitStorage(ctx context.Context, args config.ServerConfig, logger *zap.Logger) (*Storage, error) {
 	var ms Storage
 

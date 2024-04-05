@@ -12,6 +12,7 @@ import (
 	"yaprakticum-go-track2/internal/storage/storagecommons"
 )
 
+// InMemory, file-backed storage description (see Storager)
 type FileStore struct {
 	Gauges    *MetricFloat64
 	Counters  *MetricInt64Sum
@@ -25,8 +26,8 @@ func New(ctx context.Context, args config.ServerConfig, logger *zap.Logger) (*Fi
 
 	logger.Sugar().Infof("Creating memory/file storage...")
 
-	ms.syncWrite = args.StoreInterval == 0
 	ms.fileName = args.FileStoragePath
+	ms.syncWrite = args.StoreInterval == 0 && ms.fileName != ""
 
 	ms.Gauges = NewMetricFloat64()
 	ms.Counters = NewMetricInt64Sum()

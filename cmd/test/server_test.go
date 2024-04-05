@@ -1,21 +1,19 @@
-package main
+package test
 
 import (
 	"context"
+	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"yaprakticum-go-track2/internal/config"
-	"yaprakticum-go-track2/internal/handlers/getmetrics"
-	"yaprakticum-go-track2/internal/handlers/updatemetrics"
+	"yaprakticum-go-track2/internal/handlers"
 	"yaprakticum-go-track2/internal/shared"
 	"yaprakticum-go-track2/internal/storage"
-
-	"github.com/stretchr/testify/assert"
 )
 
-func TestIter2Server(t *testing.T) {
+func performTest(t *testing.T, db *storage.Storage) {
 
 	type kv struct {
 		typ   string
@@ -43,19 +41,16 @@ func TestIter2Server(t *testing.T) {
 		{testName: "Setting value to existing gauge testVal", method: http.MethodPost, url: "/update/gauge/testVal/2", wantStatusCode: http.StatusOK, wantKv: []kv{{typ: "gauge", key: "testVal", value: float64(2)}}},
 	}
 
-	var ctx context.Context
+	ctx := context.Background()
 
-	z, _ := zap.NewDevelopment()
-	db, _ := storage.InitStorage(ctx, config.ServerConfig{}, z)
-	updatemetrics.SetDataStorage(db)
-	getmetric.SetDataStorage(db)
+	handlers.SetDataStorage(db)
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		panic(err)
 	}
 	shared.Logger = logger
 
-	srv := httptest.NewServer(Router())
+	srv := httptest.NewServer(handlers.Router())
 	defer srv.Close()
 
 	for _, tt := range tests {
@@ -88,3 +83,28 @@ func TestIter2Server(t *testing.T) {
 		})
 	}
 }
+
+func TestInMemory(t *testing.T) {
+	var ctx context.Context
+	z, _ := zap.NewDevelopment()
+	db, _ := storage.InitStorage(ctx, config.ServerConfig{}, z)
+	performTest(t, db)
+}
+
+// To complete github test2B
+/*func TestPostgres(t *testing.T) {
+	postgres, err := testhelpers.NewPostgresContainer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer postgres.Close()
+
+	ctx := context.Background()
+	connectionString, err := postgres.ConnectionString()
+	if err != nil {
+		t.Fatal(err)
+	}
+	z, _ := zap.NewDevelopment()
+	db, _ := storage.InitStorage(ctx, config.ServerConfig{ConnString: connectionString}, z)
+	performTest(t, db)
+}*/

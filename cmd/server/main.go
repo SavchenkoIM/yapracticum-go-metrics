@@ -1,8 +1,9 @@
+// Server of "metrics and alerting collecting system"
+
 package main
 
 import (
 	"context"
-	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 	"net/http"
 	"os"
@@ -10,47 +11,12 @@ import (
 	"syscall"
 	"time"
 	"yaprakticum-go-track2/internal/config"
-	"yaprakticum-go-track2/internal/handlers/getmetrics"
-	"yaprakticum-go-track2/internal/handlers/middleware"
-	"yaprakticum-go-track2/internal/handlers/updatemetrics"
+	"yaprakticum-go-track2/internal/handlers"
 	"yaprakticum-go-track2/internal/shared"
 	"yaprakticum-go-track2/internal/storage"
 )
 
-var dataStorage *storage.Storage
-
-func Router() chi.Router {
-
-	r := chi.NewRouter()
-	r.Use(middleware.GzipHandler, middleware.WithLogging)
-	r.Route("/", func(r chi.Router) {
-		r.Get("/", getmetric.GetAllMetricsHandler)
-		r.Route("/updates", func(r chi.Router) {
-			r.Post("/", updatemetrics.MultiMetricsUpdateHandlerREST)
-		})
-		r.Route("/update", func(r chi.Router) {
-			r.Post("/", updatemetrics.MetricsUpdateHandlerREST)
-			r.Post("/{type}", func(res http.ResponseWriter, req *http.Request) {
-				http.Error(res, "Not enough args (No name)", http.StatusNotFound)
-			})
-			r.Post("/{type}/{name}", func(res http.ResponseWriter, req *http.Request) {
-				http.Error(res, "Not enough args (No value)", http.StatusBadRequest)
-			})
-			r.Post("/{type}/{name}/{value}", updatemetrics.MetricUpdateHandler)
-
-		})
-		r.Route("/value", func(r chi.Router) {
-			r.Get("/{type}/{name}", getmetric.GetMetricHandler)
-			r.Post("/", getmetric.GetMetricHandlerREST)
-		})
-		r.Route("/ping", func(r chi.Router) {
-			r.Get("/", getmetric.PingHandler)
-		})
-	})
-	return r
-
-}
-
+// Routine for periodic dump of metrics data to energy independed storage
 func DumpDBFile(ctx context.Context, args config.ServerConfig, dataStorage *storage.Storage, logger *zap.Logger) {
 	dt := time.Now()
 	for {
@@ -67,6 +33,7 @@ func DumpDBFile(ctx context.Context, args config.ServerConfig, dataStorage *stor
 	}
 }
 
+// Entry point of Server
 func main() {
 
 	cfg := config.ServerConfig{}
@@ -77,23 +44,23 @@ func main() {
 	}
 
 	var parentContext context.Context
-	dataStorage, err = storage.InitStorage(parentContext, args, logger)
+	dataStorage, err := storage.InitStorage(parentContext, args, logger)
 	if err != nil {
 		panic(err)
 	}
 	defer dataStorage.Close(parentContext)
-	updatemetrics.SetDataStorage(dataStorage)
-	updatemetrics.SetCongig(cfg)
+	handlers.SetDataStorage(dataStorage)
+	handlers.SetConfig(cfg)
 
-	getmetric.SetDataStorage(dataStorage)
+	handlers.SetDataStorage(dataStorage)
 
 	shared.Logger = logger
 
 	go DumpDBFile(parentContext, args, dataStorage, logger)
 
-	server := http.Server{Addr: args.Endp, Handler: Router()}
+	server := http.Server{Addr: args.Endp, Handler: handlers.Router()}
 
-	go catchSignal(parentContext, &server, logger)
+	go catchSignal(parentContext, &server, dataStorage, logger)
 
 	logger.Info("Server running at " + args.Endp)
 	if err := server.ListenAndServe(); err != nil {
@@ -101,7 +68,8 @@ func main() {
 	}
 }
 
-func catchSignal(ctx context.Context, server *http.Server, logger *zap.Logger) {
+// Handler of app termination signals
+func catchSignal(ctx context.Context, server *http.Server, dataStorage *storage.Storage, logger *zap.Logger) {
 
 	terminateSignals := make(chan os.Signal, 1)
 	signal.Notify(terminateSignals, syscall.SIGINT, syscall.SIGTERM)
@@ -113,5 +81,4 @@ func catchSignal(ctx context.Context, server *http.Server, logger *zap.Logger) {
 	dataStorage.Dump(ctx)
 	server.Shutdown(ctx)
 	//}
-
 }
