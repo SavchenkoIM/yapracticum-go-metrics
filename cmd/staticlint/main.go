@@ -58,7 +58,7 @@ import (
 	"strings"
 )
 
-// Analyzer: Checks main function of main package for direct Exit() call
+// Analyzer: Checks main function of main package for direct os.Exit() call
 var ExitCallInMainAnalyzer = &analysis.Analyzer{
 	Name: "exitinmain",
 	Doc:  "check for call of os.Exit in main func of main package",
@@ -69,31 +69,47 @@ var ExitCallInMainAnalyzer = &analysis.Analyzer{
 func exitCallInMainCheckRun(pass *analysis.Pass) (interface{}, error) {
 
 	for _, file := range pass.Files {
-		isExitCalledFile(file, pass.Fset)
+		isExitCalledInFile(file, pass.Fset)
 	}
 
 	return nil, nil
 }
 
-// Auxilary function for ExitCallInMainAnalyzer: searches Exit() call in given function fun
-func isExitCalledFunc(fun *ast.FuncDecl, fset *token.FileSet) bool {
+// Auxilary function for ExitCallInMainAnalyzer: searches call of function callFunc in function fun
+func isFuncCalledInFunc(fun *ast.FuncDecl, callFunc string, fset *token.FileSet) bool {
 	found := false
-
 	ast.Inspect(fun, func(n ast.Node) bool {
-		if c, ok := n.(*ast.SelectorExpr); ok {
-			if found = c.Sel.Name == "Exit"; found {
-				fmt.Printf("%v: Found direct call of Exit in main function\n", fset.Position(c.Pos()))
+		if c, ok := n.(*ast.CallExpr); ok {
+			if found = fmt.Sprint(c.Fun) == callFunc; found {
+				fmt.Printf("%v: Found direct call of os.Exit in main function\n", fset.Position(c.Pos()))
 				return false
 			}
 		}
-		return true
+		return !found
 	})
-
 	return found
 }
 
+// Auxilary function for ExitCallInMainAnalyzer: searches import of pack package and its alias
+func getPackageImportName(file *ast.File, pack string) (string, bool) {
+	packName := ""
+	found := false
+	ast.Inspect(file, func(n ast.Node) bool {
+		if c, ok := n.(*ast.ImportSpec); ok && c.Path.Value == fmt.Sprintf(`"%s"`, pack) {
+			found = true
+			if c.Name == nil {
+				packName = pack
+			} else {
+				packName = c.Name.Name
+			}
+		}
+		return !found
+	})
+	return packName, found
+}
+
 // Auxilary function for ExitCallInMainAnalyzer: searches entry point (main() function of package main)
-func isExitCalledFile(file *ast.File, fset *token.FileSet) bool {
+func isExitCalledInFile(file *ast.File, fset *token.FileSet) bool {
 
 	found := false
 
@@ -105,12 +121,19 @@ func isExitCalledFile(file *ast.File, fset *token.FileSet) bool {
 		return false
 	}
 
+	osName, osImported := getPackageImportName(file, "os")
+
+	if !osImported {
+		return false
+	}
+
+	callFunc := fmt.Sprintf("&{%s Exit}", osName)
 	ast.Inspect(file, func(n ast.Node) bool {
 		if c, ok := n.(*ast.FuncDecl); ok && c.Name.Name == "main" {
-			found = isExitCalledFunc(n.(*ast.FuncDecl), fset)
+			found = isFuncCalledInFunc(n.(*ast.FuncDecl), callFunc, fset)
 			return false
 		}
-		return true
+		return !found
 	})
 
 	return found
