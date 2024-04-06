@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func PerformStoregerTest(t *testing.T, db Storager) {
+func PerformStoragerTest(t *testing.T, db Storager) {
 	ctx := context.Background()
 	var m Metrics
 
@@ -15,11 +15,14 @@ func PerformStoregerTest(t *testing.T, db Storager) {
 		m.MType = "counter"
 		var d int64 = 1
 		m.Delta = &d
-		db.WriteData(ctx, m)
+		_, err := db.WriteData(ctx, m)
+		assert.NoError(t, err)
+	})
 
+	t.Run("Check Counter value", func(t *testing.T) {
 		ctr, err := db.GetCounters().ReadData(ctx, "testCounter")
 		assert.NoError(t, err)
-		assert.Equal(t, ctr["testCounter"], d)
+		assert.Equal(t, int64(1), ctr["testCounter"])
 	})
 
 	t.Run("Init Gauge", func(t *testing.T) {
@@ -27,10 +30,13 @@ func PerformStoregerTest(t *testing.T, db Storager) {
 		m.MType = "gauge"
 		var v = 5.5
 		m.Value = &v
-		db.WriteData(ctx, m)
+		_, err := db.WriteData(ctx, m)
+		assert.NoError(t, err)
+	})
 
+	t.Run("Check Gauge value", func(t *testing.T) {
 		ctr, err := db.GetGauges().ReadData(ctx, "testGauge")
 		assert.NoError(t, err)
-		assert.Equal(t, ctr["testGauge"], v)
+		assert.Equal(t, 5.5, ctr["testGauge"])
 	})
 }

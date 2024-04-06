@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"go.uber.org/zap"
 	"os"
 	"os/signal"
@@ -13,6 +14,13 @@ import (
 	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/metricspoll"
 	"yaprakticum-go-track2/internal/shared"
+)
+
+// Version info (are to be set by flags of go build)
+var (
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
 )
 
 // Metrics handler function prototype (see package metricspoll)
@@ -80,6 +88,7 @@ func agentSendRoutine(ctx context.Context, mhf metricshandlerFunc, maxWorkers in
 
 // Entry point of Agent
 func main() {
+	fmt.Printf("Metrics Agent\nBuild version: %s\nBuild date: %s\nBuild commit: %s\n", buildVersion, buildDate, buildCommit)
 
 	args := config.ClientConfig{}
 	args.Load()

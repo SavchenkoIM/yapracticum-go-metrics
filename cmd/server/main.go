@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"go.uber.org/zap"
 	"net/http"
 	"os"
@@ -14,6 +15,13 @@ import (
 	"yaprakticum-go-track2/internal/handlers"
 	"yaprakticum-go-track2/internal/shared"
 	"yaprakticum-go-track2/internal/storage"
+)
+
+// Version info (are to be set by flags of go build)
+var (
+	buildVersion string = "N/A"
+	buildDate    string = "N/A"
+	buildCommit  string = "N/A"
 )
 
 // Routine for periodic dump of metrics data to energy independed storage
@@ -35,6 +43,7 @@ func DumpDBFile(ctx context.Context, args config.ServerConfig, dataStorage *stor
 
 // Entry point of Server
 func main() {
+	fmt.Printf("Metrics Server\nBuild version: %s\nBuild date: %s\nBuild commit: %s\n", buildVersion, buildDate, buildCommit)
 
 	cfg := config.ServerConfig{}
 	args := cfg.Load()

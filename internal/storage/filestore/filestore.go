@@ -139,6 +139,14 @@ func (ths *MetricInt64Sum) WriteDataPP(ctx context.Context, key string, value in
 	return nil
 }
 
+func (ths *MetricInt64Sum) WriteDataPPInit(ctx context.Context, key string, value int64) error {
+	ths.mu.Lock()
+	ths.data[key] = value
+	ths.mu.Unlock()
+
+	return nil
+}
+
 // DumpLoad
 
 func (ms *FileStore) Dump(ctx context.Context) error {
@@ -205,7 +213,7 @@ func (ms *FileStore) Load(ctx context.Context) error {
 	for _, v := range mdb.MetricsDB {
 		switch v.MType {
 		case "counter":
-			ms.Counters.WriteDataPP(ctx, v.ID, *v.Delta)
+			ms.Counters.WriteDataPPInit(ctx, v.ID, *v.Delta)
 		case "gauge":
 			ms.Gauges.WriteDataPP(ctx, v.ID, *v.Value)
 		}

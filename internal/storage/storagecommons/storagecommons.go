@@ -2,24 +2,23 @@ package storagecommons
 
 import "context"
 
+type Substorager[T any] interface {
+	// Read substorage values for `keys` keys (if `keys` empty, returns all stored values)
+	ReadData(ctx context.Context, keys ...string) (map[string]T, error)
+	// Wrire data
+	WriteData(ctx context.Context, key string, value string) error
+	// Wrire data (value is pre-parsed)
+	WriteDataPP(ctx context.Context, key string, value T) error
+}
+
 // Gauge storage interface
 type StoragerFloat64 interface {
-	// Read Gauge values for `keys` keys (if `keys` empty, returns all stored Gauges)
-	ReadData(ctx context.Context, keys ...string) (map[string]float64, error)
-	// Wrire Gauge data
-	WriteData(ctx context.Context, key string, value string) error
-	// Wrire Gauge data (value is pre-parsed)
-	WriteDataPP(ctx context.Context, key string, value float64) error
+	Substorager[float64]
 }
 
 // Counter storage interface
 type StoragerInt64Sum interface {
-	// Read Counter values for `keys` keys (if `keys` empty, returns all stored Counters)
-	ReadData(ctx context.Context, keys ...string) (map[string]int64, error)
-	// Wrire Counter data
-	WriteData(ctx context.Context, key string, value string) error
-	// Wrire Counter data (value is pre-parsed)
-	WriteDataPP(ctx context.Context, key string, value int64) error
+	Substorager[int64]
 }
 
 // Whole storage interface
@@ -46,10 +45,10 @@ type Storager interface {
 
 // JSON serializable structure describing single metric
 type Metrics struct {
-	ID    string   `json:"id"`              // имя метрики
-	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
 	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
 	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
+	ID    string   `json:"id"`              // имя метрики
+	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
 }
 
 // JSON serializable structure describing batch of metrics
