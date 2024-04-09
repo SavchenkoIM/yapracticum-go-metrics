@@ -7,18 +7,13 @@ import (
 	"yaprakticum-go-track2/internal/storage"
 )
 
-// "Storage" of the package
-var dataStorage *storage.Storage
-
-// Sets object "storage" for the package
-func SetDataStorage(storage *storage.Storage) {
-	dataStorage = storage
+// Handlers object of metrics and alerting server
+type Handlers struct {
+	dataStorage *storage.Storage
+	cfg         config.ServerConfig
 }
 
-// Server configuration parameters
-var cfg config.ServerConfig
-
-// Sets server configuration parameters for the package
-func SetConfig(config config.ServerConfig) {
-	cfg = config
+// Constructor of Handlers
+func NewHandlers(storage *storage.Storage, config config.ServerConfig) Handlers {
+	return Handlers{dataStorage: storage, cfg: config}
 }

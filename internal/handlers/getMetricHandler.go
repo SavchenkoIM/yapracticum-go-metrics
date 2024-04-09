@@ -12,15 +12,15 @@ import (
 )
 
 // Checks if storage link is up
-func PingHandler(res http.ResponseWriter, req *http.Request) {
-	if err := dataStorage.Ping(req.Context()); err != nil {
+func (h Handlers) PingHandler(res http.ResponseWriter, req *http.Request) {
+	if err := h.dataStorage.Ping(req.Context()); err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
 	}
 	res.WriteHeader(http.StatusOK)
 }
 
 // Returns response of html type with all stored metrics data displayed
-func GetAllMetricsHandler(res http.ResponseWriter, req *http.Request) {
+func (h Handlers) GetAllMetricsHandler(res http.ResponseWriter, req *http.Request) {
 
 	type Counter struct {
 		Key   string
@@ -41,13 +41,13 @@ func GetAllMetricsHandler(res http.ResponseWriter, req *http.Request) {
 	pageData.Counters = make([]Counter, 0)
 	pageData.Gauges = make([]Gauge, 0)
 
-	dta1, _ := dataStorage.GetCounters().ReadData(req.Context())
+	dta1, _ := h.dataStorage.GetCounters().ReadData(req.Context())
 	for k, v := range dta1 {
 		k, v := k, v
 		pageData.Counters = append(pageData.Counters, Counter{k, v})
 	}
 
-	dta2, _ := dataStorage.GetGauges().ReadData(req.Context())
+	dta2, _ := h.dataStorage.GetGauges().ReadData(req.Context())
 	for k, v := range dta2 {
 		k, v := k, v
 		pageData.Gauges = append(pageData.Gauges, Gauge{k, v})
@@ -77,21 +77,21 @@ GAUGES:</br>
 }
 
 // Returns requested metric value (text format)
-func GetMetricHandler(res http.ResponseWriter, req *http.Request) {
+func (h Handlers) GetMetricHandler(res http.ResponseWriter, req *http.Request) {
 
 	typ := chi.URLParam(req, "type")
 	nam := chi.URLParam(req, "name")
 
 	switch typ {
 	case "gauge":
-		value, err := dataStorage.GetGauges().ReadData(req.Context(), nam)
+		value, err := h.dataStorage.GetGauges().ReadData(req.Context(), nam)
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusNotFound)
 			return
 		}
 		res.Write([]byte(strconv.FormatFloat(value[nam], 'f', -1, 64)))
 	case "counter":
-		value, err := dataStorage.GetCounters().ReadData(req.Context(), nam)
+		value, err := h.dataStorage.GetCounters().ReadData(req.Context(), nam)
 		if err != nil {
 			http.Error(res, err.Error(), http.StatusNotFound)
 			return
@@ -105,7 +105,7 @@ func GetMetricHandler(res http.ResponseWriter, req *http.Request) {
 }
 
 // Returns requested metric value (JSON format)
-func GetMetricHandlerREST(res http.ResponseWriter, req *http.Request) {
+func (h Handlers) GetMetricHandlerREST(res http.ResponseWriter, req *http.Request) {
 
 	var dta storagecommons.Metrics
 
@@ -119,7 +119,7 @@ func GetMetricHandlerREST(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	dta2, err := dataStorage.ReadData(req.Context(), dta)
+	dta2, err := h.dataStorage.ReadData(req.Context(), dta)
 
 	if err == nil {
 		resp, _ := json.MarshalIndent(dta2, "", "    ")

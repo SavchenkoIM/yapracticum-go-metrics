@@ -5,35 +5,36 @@ import (
 	"net/http"
 	hpprof "net/http/pprof"
 	"yaprakticum-go-track2/internal/handlers/middleware"
+	"yaprakticum-go-track2/internal/prom"
 )
 
 // Router of the Server
-func Router() chi.Router {
+func Router(h Handlers, pm *prom.CustomPromMetrics) chi.Router {
 
 	r := chi.NewRouter()
-	r.Use(middleware.GzipHandler, middleware.WithLogging)
+	r.Use(middleware.GzipHandler, middleware.WithLogging, middleware.Prom(pm))
 	r.Route("/", func(r chi.Router) {
-		r.Get("/", GetAllMetricsHandler)
+		r.Get("/", h.GetAllMetricsHandler)
 		r.Route("/updates", func(r chi.Router) {
-			r.Post("/", MultiMetricsUpdateHandlerREST)
+			r.Post("/", h.MultiMetricsUpdateHandlerREST)
 		})
 		r.Route("/update", func(r chi.Router) {
-			r.Post("/", MetricsUpdateHandlerREST)
+			r.Post("/", h.MetricsUpdateHandlerREST)
 			r.Post("/{type}", func(res http.ResponseWriter, req *http.Request) {
 				http.Error(res, "Not enough args (No name)", http.StatusNotFound)
 			})
 			r.Post("/{type}/{name}", func(res http.ResponseWriter, req *http.Request) {
 				http.Error(res, "Not enough args (No value)", http.StatusBadRequest)
 			})
-			r.Post("/{type}/{name}/{value}", MetricUpdateHandler)
+			r.Post("/{type}/{name}/{value}", h.MetricUpdateHandler)
 
 		})
 		r.Route("/value", func(r chi.Router) {
-			r.Get("/{type}/{name}", GetMetricHandler)
-			r.Post("/", GetMetricHandlerREST)
+			r.Get("/{type}/{name}", h.GetMetricHandler)
+			r.Post("/", h.GetMetricHandlerREST)
 		})
 		r.Route("/ping", func(r chi.Router) {
-			r.Get("/", PingHandler)
+			r.Get("/", h.PingHandler)
 		})
 		r.Route("/debug", func(r chi.Router) {
 			r.Route("/pprof", func(r chi.Router) {

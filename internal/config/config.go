@@ -12,6 +12,7 @@ import (
 // Server configuration
 type ServerConfig struct {
 	Endp            string
+	EndpProm        string
 	FileStoragePath string
 	ConnString      string
 	Key             string
@@ -22,6 +23,7 @@ type ServerConfig struct {
 // Parses Server configuration
 func (cfg *ServerConfig) Load() ServerConfig {
 	endp := flag.String("a", ":8080", "Server endpoint address:port")
+	endpprom := flag.String("ap", ":18080", "Prom server endpoint address:port")
 	storeInterval := flag.Int64("i", 300, "Store interval")
 	fileStoragePath := flag.String("f", "/tmp/metrics-db.json", "File storage path")
 	restoreData := flag.Bool("r", true, "Restore data from disc")
@@ -31,6 +33,9 @@ func (cfg *ServerConfig) Load() ServerConfig {
 
 	if val, exist := os.LookupEnv("ADDRESS"); exist {
 		*endp = val
+	}
+	if val, exist := os.LookupEnv("ADDRESSPROM"); exist {
+		*endpprom = val
 	}
 	if _, exist := os.LookupEnv("STORE_INTERVAL"); exist {
 		if val, err := strconv.ParseInt(os.Getenv("STORE_INTERVAL"), 10, 64); err != nil {
@@ -53,6 +58,7 @@ func (cfg *ServerConfig) Load() ServerConfig {
 	}
 
 	cfg.Endp = *endp
+	cfg.EndpProm = *endpprom
 	cfg.FileStoragePath = *fileStoragePath
 	cfg.Restore = *restoreData
 	cfg.StoreInterval = time.Duration(*storeInterval) * time.Second
