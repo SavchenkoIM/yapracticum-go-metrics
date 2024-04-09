@@ -515,7 +515,7 @@ func (ms *DBStore) WriteDataMultyBatch(ctx context.Context, metrics storagecommo
 	ctr := 0
 	paramsStr := make([]string, 0)
 	paramsVals := make([]any, 0)
-	tx, err := ms.db.BeginTx(ctx, nil)
+	tx, _ := ms.db.BeginTx(ctx, nil)
 
 	for _, record := range metrics.MetricsDB {
 		switch record.MType {
@@ -524,7 +524,6 @@ func (ms *DBStore) WriteDataMultyBatch(ctx context.Context, metrics storagecommo
 			if err != nil {
 				return err
 			}
-			break
 		case "gauge":
 			ID := record.ID
 			Value := *record.Value
@@ -532,11 +531,10 @@ func (ms *DBStore) WriteDataMultyBatch(ctx context.Context, metrics storagecommo
 			paramsVals = append(paramsVals, ID)
 			paramsVals = append(paramsVals, Value)
 			ctr++
-			break
 		}
 	}
 
-	err = ms.Gauges.createTable(ctx, tx)
+	err := ms.Gauges.createTable(ctx, tx)
 	if err != nil {
 		return err
 	}
