@@ -6,12 +6,17 @@ import (
 	"go.uber.org/zap"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/handlers"
+	"yaprakticum-go-track2/internal/prom"
 	"yaprakticum-go-track2/internal/shared"
 	"yaprakticum-go-track2/internal/storage"
 )
+
+var once sync.Once
+var cpm *prom.CustomPromMetrics
 
 func performTest(t *testing.T, db *storage.Storage) {
 
@@ -43,14 +48,16 @@ func performTest(t *testing.T, db *storage.Storage) {
 
 	ctx := context.Background()
 
-	handlers.SetDataStorage(db)
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		panic(err)
 	}
 	shared.Logger = logger
 
-	srv := httptest.NewServer(handlers.Router())
+	once.Do(func() {
+		cpm = prom.NewCustomPromMetrics()
+	})
+	srv := httptest.NewServer(handlers.Router(handlers.NewHandlers(db, config.ServerConfig{}), cpm))
 	defer srv.Close()
 
 	for _, tt := range tests {

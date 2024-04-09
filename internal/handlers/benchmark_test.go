@@ -13,25 +13,25 @@ import (
 	"yaprakticum-go-track2/internal/testhelpers"
 )
 
-func performBench(b *testing.B, dataStorage *storage.Storage) {
-	cfg = config.ServerConfig{}
+func performBench(b *testing.B, h Handlers) {
 	reqData := `{ "id": "g1", "value": 5, "type": "gauge" }`
 	for i := 0; i < b.N; i++ {
 		req := httptest.NewRequest(http.MethodPost, "/", nil)
 		res := httptest.NewRecorder()
 		req.Body = io.NopCloser(bytes.NewBuffer([]byte(reqData)))
 		req.ContentLength = int64(len(reqData))
-		MetricsUpdateHandlerREST(res, req)
+		h.MetricsUpdateHandlerREST(res, req)
 	}
 }
 
 func BenchmarkAddGaugeInMemory(b *testing.B) {
 	ctx := context.Background()
 	logger := testhelpers.GetCustomZap(zap.ErrorLevel)
-	dataStorage, _ = storage.InitStorage(ctx, config.ServerConfig{}, logger)
+	dataStorage, _ := storage.InitStorage(ctx, config.ServerConfig{}, logger)
+	h := NewHandlers(dataStorage, config.ServerConfig{})
 	b.ResetTimer()
 
-	performBench(b, dataStorage)
+	performBench(b, h)
 }
 
 func BenchmarkAddGaugePostgres(b *testing.B) {
@@ -42,7 +42,8 @@ func BenchmarkAddGaugePostgres(b *testing.B) {
 	ctx := context.Background()
 	logger := testhelpers.GetCustomZap(zap.ErrorLevel)
 	connectionString, _ := postgres.ConnectionString()
-	dataStorage, _ = storage.InitStorage(ctx, config.ServerConfig{ConnString: connectionString}, logger)
+	dataStorage, _ := storage.InitStorage(ctx, config.ServerConfig{ConnString: connectionString}, logger)
+	h := NewHandlers(dataStorage, config.ServerConfig{})
 	b.ResetTimer()
 
 	defer func(postgres *testhelpers.PostgresContainer) {
@@ -51,5 +52,5 @@ func BenchmarkAddGaugePostgres(b *testing.B) {
 		b.StartTimer()
 	}(postgres)
 
-	performBench(b, dataStorage)
+	performBench(b, h)
 }
