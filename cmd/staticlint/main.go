@@ -77,6 +77,11 @@ func exitCallInMainCheckRun(pass *analysis.Pass) (interface{}, error) {
 
 // Auxilary function for ExitCallInMainAnalyzer: searches call of function callFunc in function fun
 func isFuncCalledInFunc(fun *ast.FuncDecl, callFunc string, fset *token.FileSet) bool {
+	// "found" is not only flag for Inspect termination.
+	// This variable is ret value for this function (in case it is used by another logic)
+	// "Double if" construction means "If found: stop, else keep scanning", and "found" is state of whole process,
+	// not only current conditional jump. Return in Inspect doesnt return parent function, that's why I need flag
+	// "found" to be declared explicitly.
 	found := false
 	ast.Inspect(fun, func(n ast.Node) bool {
 		if c, ok := n.(*ast.CallExpr); ok {
@@ -110,7 +115,11 @@ func getPackageImportName(file *ast.File, pack string) (string, bool) {
 
 // Auxilary function for ExitCallInMainAnalyzer: searches entry point (main() function of package main)
 func isExitCalledInFile(file *ast.File, fset *token.FileSet) bool {
-
+	// "found" is not only flag for Inspect termination.
+	// This variable is ret value for this function (in case it is used by another logic)
+	// "Double if" construction means "If found: stop, else keep scanning", and "found" is state of whole process,
+	// not only current conditional jump. Return in Inspect doesnt return parent function, that's why I need flag
+	// "found" to be declared explicitly.
 	found := false
 
 	if file == nil {

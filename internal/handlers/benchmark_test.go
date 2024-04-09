@@ -26,17 +26,15 @@ func performBench(b *testing.B, dataStorage *storage.Storage) {
 }
 
 func BenchmarkAddGaugeInMemory(b *testing.B) {
-	b.StopTimer()
 	ctx := context.Background()
 	logger := testhelpers.GetCustomZap(zap.ErrorLevel)
 	dataStorage, _ = storage.InitStorage(ctx, config.ServerConfig{}, logger)
-	b.StartTimer()
+	b.ResetTimer()
 
 	performBench(b, dataStorage)
 }
 
 func BenchmarkAddGaugePostgres(b *testing.B) {
-	b.StopTimer()
 	postgres, err := testhelpers.NewPostgresContainer()
 	if err != nil {
 		b.Fatal(err)
@@ -45,7 +43,7 @@ func BenchmarkAddGaugePostgres(b *testing.B) {
 	logger := testhelpers.GetCustomZap(zap.ErrorLevel)
 	connectionString, _ := postgres.ConnectionString()
 	dataStorage, _ = storage.InitStorage(ctx, config.ServerConfig{ConnString: connectionString}, logger)
-	b.StartTimer()
+	b.ResetTimer()
 
 	defer func(postgres *testhelpers.PostgresContainer) {
 		b.StopTimer()

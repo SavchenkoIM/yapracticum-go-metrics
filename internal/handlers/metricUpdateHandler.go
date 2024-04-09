@@ -61,7 +61,7 @@ func checkHmacSha256(r *http.Request, cfg config.ServerConfig) error {
 // Storing metric data of given type and name
 //
 // Metric data is extracted from URL
-func MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
+func (h Handlers) MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
 
 	typ := chi.URLParam(req, "type")
 	name := chi.URLParam(req, "name")
@@ -70,14 +70,14 @@ func MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
 	switch typ {
 	case "gauge":
 
-		if err := dataStorage.GetGauges().WriteData(req.Context(), name, val); err != nil {
+		if err := h.dataStorage.GetGauges().WriteData(req.Context(), name, val); err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 	case "counter":
 
-		if err := dataStorage.GetCounters().WriteData(req.Context(), name, val); err != nil {
+		if err := h.dataStorage.GetCounters().WriteData(req.Context(), name, val); err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -93,9 +93,9 @@ func MetricUpdateHandler(res http.ResponseWriter, req *http.Request) {
 // Storing metric data of given type and name
 //
 // Metric data is expected to be JSON string and is extracted from request body
-func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
+func (h Handlers) MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 
-	if err := checkHmacSha256(req, cfg); err != nil {
+	if err := checkHmacSha256(req, h.cfg); err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -113,7 +113,7 @@ func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	resp, err := dataStorage.WriteData(req.Context(), dta)
+	resp, err := h.dataStorage.WriteData(req.Context(), dta)
 	val, _ := json.MarshalIndent(resp, "", "    ")
 
 	if err == nil {
@@ -128,9 +128,9 @@ func MetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 // Packet storing of metrics data
 //
 // Data is expected to be JSON string and is extracted from request body
-func MultiMetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
+func (h Handlers) MultiMetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 
-	if err := checkHmacSha256(req, cfg); err != nil {
+	if err := checkHmacSha256(req, h.cfg); err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -147,7 +147,7 @@ func MultiMetricsUpdateHandlerREST(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err = dataStorage.WriteDataMulty(req.Context(), dta)
+	err = h.dataStorage.WriteDataMulty(req.Context(), dta)
 
 	if err == nil {
 		return

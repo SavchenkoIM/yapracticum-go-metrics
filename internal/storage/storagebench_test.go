@@ -10,7 +10,6 @@ import (
 )
 
 func BenchmarkPostgres(b *testing.B) {
-	b.StopTimer()
 	postgres, err := testhelpers.NewPostgresContainer()
 	if err != nil {
 		b.Fatal(err)
@@ -24,7 +23,7 @@ func BenchmarkPostgres(b *testing.B) {
 	db, _ := InitStorage(ctx, config.ServerConfig{
 		ConnString: connectionString,
 	}, logger)
-	b.StartTimer()
+	b.ResetTimer()
 
 	defer func(postgres *testhelpers.PostgresContainer) {
 		b.StopTimer()
@@ -44,11 +43,10 @@ func BenchmarkPostgres(b *testing.B) {
 }
 
 func BenchmarkInMemory(b *testing.B) {
-	b.StopTimer()
 	ctx := context.Background()
 	logger := testhelpers.GetCustomZap(zap.ErrorLevel)
 	db, _ := InitStorage(ctx, config.ServerConfig{}, logger)
-	b.StartTimer()
+	b.ResetTimer()
 
 	var val float64 = 20
 	var m storagecommons.Metrics

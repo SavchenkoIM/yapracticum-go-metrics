@@ -13,6 +13,8 @@ import (
 	"time"
 	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/handlers"
+	"yaprakticum-go-track2/internal/prom"
+	"yaprakticum-go-track2/internal/prom/promserver"
 	"yaprakticum-go-track2/internal/shared"
 	"yaprakticum-go-track2/internal/storage"
 )
@@ -23,6 +25,10 @@ var (
 	buildDate    string = "N/A"
 	buildCommit  string = "N/A"
 )
+
+type ShutdownerCtx interface {
+	Shutdown(context.Context) error
+}
 
 // Routine for periodic dump of metrics data to energy independed storage
 func DumpDBFile(ctx context.Context, args config.ServerConfig, dataStorage *storage.Storage, logger *zap.Logger) {
@@ -58,18 +64,18 @@ func main() {
 		panic(err)
 	}
 	defer dataStorage.Close(parentContext)
-	handlers.SetDataStorage(dataStorage)
-	handlers.SetConfig(cfg)
-
-	handlers.SetDataStorage(dataStorage)
 
 	shared.Logger = logger
 
 	go DumpDBFile(parentContext, args, dataStorage, logger)
 
-	server := http.Server{Addr: args.Endp, Handler: handlers.Router()}
+	server := http.Server{Addr: args.Endp,
+		Handler: handlers.Router(handlers.NewHandlers(dataStorage, cfg),
+			prom.NewCustomPromMetrics())}
+	serverProm := promserver.NewServer(args.EndpProm, logger)
+	serverProm.ListenAndServeAsync()
 
-	go catchSignal(parentContext, &server, dataStorage, logger)
+	go catchSignal(parentContext, []ShutdownerCtx{&server, serverProm}, dataStorage, logger)
 
 	logger.Info("Server running at " + args.Endp)
 	if err := server.ListenAndServe(); err != nil {
@@ -78,16 +84,16 @@ func main() {
 }
 
 // Handler of app termination signals
-func catchSignal(ctx context.Context, server *http.Server, dataStorage *storage.Storage, logger *zap.Logger) {
+func catchSignal(ctx context.Context, servers []ShutdownerCtx, dataStorage *storage.Storage, logger *zap.Logger) {
 
 	terminateSignals := make(chan os.Signal, 1)
 	signal.Notify(terminateSignals, syscall.SIGINT, syscall.SIGTERM)
 
-	//for {
 	s := <-terminateSignals
 	logger.Info("Got one of stop signals, shutting down server gracefully, SIGNAL NAME :" + s.String())
 
 	dataStorage.Dump(ctx)
-	server.Shutdown(ctx)
-	//}
+	for _, server := range servers {
+		server.Shutdown(ctx)
+	}
 }
