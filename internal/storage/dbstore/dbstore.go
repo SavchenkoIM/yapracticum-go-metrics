@@ -8,6 +8,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"go.uber.org/zap"
 	"strconv"
+	"strings"
 	"time"
 	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/storage/storagecommons"
@@ -506,4 +507,51 @@ func (ms *DBStore) Ping(ctx context.Context) error {
 	ctxw, cancel := context.WithTimeout(ctx, 250*time.Millisecond)
 	defer cancel()
 	return ms.db.PingContext(ctxw)
+}
+
+// Batch write (does not pass github tests)
+func (ms *DBStore) WriteDataMultyBatch(ctx context.Context, metrics storagecommons.MetricsDB) error {
+
+	ctr := 0
+	paramsStr := make([]string, 0)
+	paramsVals := make([]any, 0)
+	tx, _ := ms.db.BeginTx(ctx, nil)
+
+	for _, record := range metrics.MetricsDB {
+		switch record.MType {
+		case "counter":
+			_, err := ms.writeDataTX(ctx, tx, record)
+			if err != nil {
+				return err
+			}
+		case "gauge":
+			ID := record.ID
+			Value := *record.Value
+			paramsStr = append(paramsStr, fmt.Sprintf("($%d,$%d)", ctr*2+1, ctr*2+2))
+			paramsVals = append(paramsVals, ID)
+			paramsVals = append(paramsVals, Value)
+			ctr++
+		}
+	}
+
+	err := ms.Gauges.createTable(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	query := `INSERT INTO "gauges" ("Key", "Value") VALUES ` + strings.Join(paramsStr, ",") + " "
+	query += `ON CONFLICT ("Key") DO UPDATE SET "Value" = EXCLUDED."Value"`
+
+	_, err = tx.Exec(query, paramsVals...)
+	if err != nil {
+		println(err.Error())
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
