@@ -3,6 +3,8 @@
 package config
 
 import (
+	"crypto/rsa"
+	"crypto/x509"
 	"flag"
 	"os"
 	"strconv"
@@ -18,6 +20,8 @@ type ServerConfig struct {
 	Key             string
 	StoreInterval   time.Duration
 	Restore         bool
+	UseRSA          bool
+	RSAPrivateKey   rsa.PrivateKey
 }
 
 // Parses Server configuration
@@ -29,6 +33,7 @@ func (cfg *ServerConfig) Load() ServerConfig {
 	restoreData := flag.Bool("r", true, "Restore data from disc")
 	connString := flag.String("d", "", "DB Connection string")
 	key := flag.String("k", "", "Key")
+	rsakey := flag.String("crypto-key", "", "RSA private key file name")
 	flag.Parse()
 
 	if val, exist := os.LookupEnv("ADDRESS"); exist {
@@ -56,6 +61,9 @@ func (cfg *ServerConfig) Load() ServerConfig {
 	if val, exist := os.LookupEnv("KEY"); exist {
 		*key = val
 	}
+	if val, exist := os.LookupEnv("CRYPTO_KEY"); exist {
+		*rsakey = val
+	}
 
 	cfg.Endp = *endp
 	cfg.EndpProm = *endpprom
@@ -64,6 +72,23 @@ func (cfg *ServerConfig) Load() ServerConfig {
 	cfg.StoreInterval = time.Duration(*storeInterval) * time.Second
 	cfg.ConnString = *connString
 	cfg.Key = *key
+
+	if *rsakey == "" {
+		return *cfg
+	}
+	pk, err := os.ReadFile(*rsakey)
+	if err != nil {
+		cfg.UseRSA = false
+		return *cfg
+	}
+	privateKey, err := x509.ParsePKCS1PrivateKey(pk)
+	if err != nil {
+		cfg.UseRSA = false
+		return *cfg
+	}
+	cfg.RSAPrivateKey = *privateKey
+	cfg.UseRSA = true
+
 	return *cfg
 }
 
@@ -74,6 +99,8 @@ type ClientConfig struct {
 	ReqLimit       int64
 	PollInterval   time.Duration
 	ReportInterval time.Duration
+	UseRSA         bool
+	RSAPublicKey   rsa.PublicKey
 }
 
 // Parses Agent configuration
@@ -83,6 +110,7 @@ func (cfg *ClientConfig) Load() ClientConfig {
 	reportInterval := flag.Float64("r", 10, "reportInterval")
 	key := flag.String("k", "", "Key")
 	rateLimit := flag.Int64("l", 5, "Limit of simultaneous requests")
+	rsakey := flag.String("crypto-key", "", "RSA public key file name")
 	flag.Parse()
 
 	if val, exist := os.LookupEnv("ADDRESS"); exist {
@@ -112,5 +140,24 @@ func (cfg *ClientConfig) Load() ClientConfig {
 	cfg.ReportInterval = time.Duration(*reportInterval) * time.Second
 	cfg.Key = *key
 	cfg.ReqLimit = *rateLimit
+
+	if *rsakey == "" {
+		return *cfg
+	}
+	pk, err := os.ReadFile(*rsakey)
+	if err != nil {
+		println(err.Error())
+		cfg.UseRSA = false
+		return *cfg
+	}
+	publicKey, err := x509.ParsePKCS1PublicKey(pk)
+	if err != nil {
+		println(err.Error())
+		cfg.UseRSA = false
+		return *cfg
+	}
+	cfg.RSAPublicKey = *publicKey
+	cfg.UseRSA = true
+
 	return *cfg
 }
