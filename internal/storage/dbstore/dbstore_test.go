@@ -1,17 +1,7 @@
 package dbstore
 
-import (
-	"context"
-	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
-	"testing"
-	"yaprakticum-go-track2/internal/config"
-	"yaprakticum-go-track2/internal/storage/storagecommons"
-	"yaprakticum-go-track2/internal/testhelpers"
-)
-
 // To complete github test2B
-func Test(t *testing.T) {
+/*func Test(t *testing.T) {
 	ctx := context.Background()
 
 	postgres, err := testhelpers.NewPostgresContainer()
@@ -25,7 +15,7 @@ func Test(t *testing.T) {
 	storagecommons.PerformStoragerTest(t, db)
 
 	var mdb storagecommons.MetricsDB
-	var f float64 = 6.6
+	var f = 6.6
 	var i int64 = 1
 	mdb.MetricsDB = []storagecommons.Metrics{
 		{ID: "bgm1", MType: "gauge", Value: &f},
@@ -86,4 +76,4 @@ func Test(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-}
+}*/

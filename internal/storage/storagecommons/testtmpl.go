@@ -41,7 +41,7 @@ func PerformStoragerTest(t *testing.T, db Storager) {
 	})
 
 	var mdb MetricsDB
-	var f float64 = 6.6
+	var f = 6.6
 	var i int64 = 1
 	mdb.MetricsDB = []Metrics{
 		{ID: "gm1", MType: "gauge", Value: &f},
