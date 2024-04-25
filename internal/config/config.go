@@ -5,7 +5,9 @@ package config
 import (
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"flag"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -24,6 +26,15 @@ type ServerConfig struct {
 	RSAPrivateKey   rsa.PrivateKey
 }
 
+type ServerConfigFile struct {
+	Address       string `json:"address,omitempty"`
+	Restore       bool   `json:"restore,omitempty"`
+	StoreInterval string `json:"store_interval,omitempty"`
+	StoreFile     string `json:"store_file,omitempty"`
+	DatabaseDsn   string `json:"database_dsn,omitempty"`
+	CryptoKey     string `json:"crypto_key,omitempty"`
+}
+
 // Parses Server configuration
 func (cfg *ServerConfig) Load() ServerConfig {
 	endp := flag.String("a", ":8080", "Server endpoint address:port")
@@ -34,7 +45,31 @@ func (cfg *ServerConfig) Load() ServerConfig {
 	connString := flag.String("d", "", "DB Connection string")
 	key := flag.String("k", "", "Key")
 	rsakey := flag.String("crypto-key", "", "RSA private key file name")
+	configFile := flag.String("c", "", "Config file")
+	flag.StringVar(configFile, "config", "", "Config file")
 	flag.Parse()
+
+	if val, exist := os.LookupEnv("CONFIG"); exist {
+		*configFile = val
+	}
+	if *configFile != "" {
+		scf := ServerConfigFile{}
+		cfile, err := os.ReadFile(*configFile)
+		if err == nil {
+			err = json.Unmarshal(cfile, &scf)
+		}
+		if err == nil {
+			*endp = scf.Address
+			*restoreData = scf.Restore
+			duration, err := time.ParseDuration(scf.StoreInterval)
+			if err == nil {
+				*storeInterval = int64(duration.Seconds())
+			}
+			*fileStoragePath = scf.StoreFile
+			*connString = scf.DatabaseDsn
+			*rsakey = scf.CryptoKey
+		}
+	}
 
 	if val, exist := os.LookupEnv("ADDRESS"); exist {
 		*endp = val
@@ -103,6 +138,13 @@ type ClientConfig struct {
 	RSAPublicKey   rsa.PublicKey
 }
 
+type ClientConfigFile struct {
+	Address        string `json:"address,omitempty"`
+	ReportInterval string `json:"report_interval,omitempty"`
+	PollInterval   string `json:"poll_interval,omitempty"`
+	CryptoKey      string `json:"crypto_key,omitempty"`
+}
+
 // Parses Agent configuration
 func (cfg *ClientConfig) Load() ClientConfig {
 	endp := flag.String("a", "localhost:8080", "Server endpoint address:port")
@@ -111,7 +153,33 @@ func (cfg *ClientConfig) Load() ClientConfig {
 	key := flag.String("k", "", "Key")
 	rateLimit := flag.Int64("l", 5, "Limit of simultaneous requests")
 	rsakey := flag.String("crypto-key", "", "RSA public key file name")
+	configFile := flag.String("c", "", "Config file")
+	flag.StringVar(configFile, "config", "", "Config file")
 	flag.Parse()
+
+	if val, exist := os.LookupEnv("CONFIG"); exist {
+		*configFile = val
+	}
+	if *configFile != "" {
+		ccf := ClientConfigFile{}
+		cfile, err := os.ReadFile(*configFile)
+		if err == nil {
+			err = json.Unmarshal(cfile, &ccf)
+		}
+		fmt.Println(ccf)
+		if err == nil {
+			*endp = ccf.Address
+			duration, err := time.ParseDuration(ccf.ReportInterval)
+			if err == nil {
+				*reportInterval = duration.Seconds()
+			}
+			duration, err = time.ParseDuration(ccf.PollInterval)
+			if err == nil {
+				*pollInterval = duration.Seconds()
+			}
+			*rsakey = ccf.CryptoKey
+		}
+	}
 
 	if val, exist := os.LookupEnv("ADDRESS"); exist {
 		*endp = val
