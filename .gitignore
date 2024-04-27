@@ -5,6 +5,9 @@
 *.so
 *.dylib
 
+# keys
+*.key
+
 # Test binary, built with `go test -c`
 *.test
 
@@ -23,12 +26,9 @@ vendor/
 # IDEs directories
 .idea
 .vscode
-<<<<<<< HEAD
 
 # Misc help files
 *.bat
 
 # Backup files
 *.bck
-=======
->>>>>>> template/up_to_iter24

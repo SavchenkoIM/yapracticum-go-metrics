@@ -7,12 +7,16 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/hmac"
+	crand "crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
+	"hash"
+	"io"
 	"math/rand"
 	"net/http"
 	"runtime"
@@ -103,12 +107,48 @@ func compressGzip(b []byte) ([]byte, error) {
 }
 
 // Auxilary function for adding HMAC signature to request
-func addHmacSha256(req *http.Request, body []byte, key string) {
+func addHmacSha256(req *http.Request, body []byte, key string) *http.Request {
 	if key != "" {
 		hmc := hmac.New(sha256.New, []byte(key))
 		hmc.Write(body)
 		req.Header.Set("HashSHA256", hex.EncodeToString(hmc.Sum(nil)))
 	}
+	return req
+}
+
+func EncryptOAEP(hash hash.Hash, random io.Reader, public *rsa.PublicKey, msg []byte, label []byte) ([]byte, error) {
+	msgLen := len(msg)
+	step := public.Size() - 2*hash.Size() - 2
+	var encryptedBytes []byte
+
+	for start := 0; start < msgLen; start += step {
+		finish := start + step
+		if finish > msgLen {
+			finish = msgLen
+		}
+
+		encryptedBlockBytes, err := rsa.EncryptOAEP(hash, random, public, msg[start:finish], label)
+		if err != nil {
+			return nil, err
+		}
+
+		encryptedBytes = append(encryptedBytes, encryptedBlockBytes...)
+	}
+
+	return encryptedBytes, nil
+}
+
+func getEncryptedBody(body []byte, cfg config.ClientConfig) ([]byte, error) {
+	if !cfg.UseRSA {
+		return body, nil
+	}
+
+	oaep, err := EncryptOAEP(sha256.New(), crand.Reader, &cfg.RSAPublicKey, body, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return oaep, nil
 }
 
 // Filling JSON marshallable structure to be sent to Server
@@ -149,6 +189,13 @@ func (ths *MetricsHandler) SendData(ctx context.Context) {
 	// Compress data
 	jm, _ := json.Marshal(dta.MetricsDB)
 	b, _ := compressGzip(jm)
+	b, err := getEncryptedBody(b, ths.cfg)
+
+	if err != nil {
+		shared.Logger.Sugar().Errorf("Error while prepering data: %v", err)
+		return
+	}
+
 	bb := bytes.NewBuffer(b)
 
 	req, _ := http.NewRequest(http.MethodPost, "http://"+srvEndp+"/updates/", bb)
