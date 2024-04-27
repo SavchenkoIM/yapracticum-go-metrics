@@ -107,7 +107,7 @@ func main() {
 
 	wg := sync.WaitGroup{}
 
-	wg.Add(2) // Add 2 not in routine to enshure that wg.Wait will work
+	wg.Add(2) // Add 2 not in routine to ensure that wg.Wait will work
 	go agentRefreshRoutine(cWithCancel, mh.RefreshData, "main metrics", &wg, args.PollInterval)
 	go agentRefreshRoutine(cWithCancel, mh.RefreshDataExt, "extended metrics", &wg, args.PollInterval)
 	wg.Add(1) // additionally wg.Add(1) placed into each worker
