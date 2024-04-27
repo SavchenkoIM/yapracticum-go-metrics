@@ -425,7 +425,7 @@ func (ms *DBStore) writeDataTX(ctx context.Context, tx *sql.Tx, metrics storagec
 		rMetrics = metrics
 	case "counter":
 		if metrics.Delta == nil {
-			return metrics, errors.New("no Value data provided")
+			return metrics, errors.New("no Delta data provided")
 		}
 		ms.Counters.writeDataPPTX(ctx, tx, metrics.ID, *metrics.Delta)
 
@@ -471,7 +471,7 @@ func (ms *DBStore) ReadData(ctx context.Context, metrics storagecommons.Metrics)
 		data, err := ms.Counters.ReadData(ctx)
 
 		if err != nil {
-			return metrics, nil
+			return metrics, err
 		}
 
 		vl, exist := data[metrics.ID]

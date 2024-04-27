@@ -287,7 +287,7 @@ func (ms *FileStore) ReadData(ctx context.Context, metrics storagecommons.Metric
 		data, err := ms.Counters.ReadData(ctx)
 
 		if err != nil {
-			return metrics, nil
+			return metrics, err
 		}
 
 		vl, exist := data[metrics.ID]
