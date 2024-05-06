@@ -121,8 +121,8 @@ func getClientConfigFromJSON(filename string) clientConfigNull {
 func CombineClientConfigs(configs ...clientConfigNull) ClientConfig {
 	clientConfig := ClientConfig{
 		Endp:           ":8080",
-		PollInterval:   2,
-		ReportInterval: 10,
+		PollInterval:   2 * time.Second,
+		ReportInterval: 10 * time.Second,
 		ReqLimit:       5,
 		Key:            "",
 		UseRSA:         false,
@@ -168,5 +168,6 @@ func (cfg *ClientConfig) Load() ClientConfig {
 
 	fileConf := getClientConfigFromJSON(confFileName)
 
-	return CombineClientConfigs(envConf, clConf, fileConf)
+	*cfg = CombineClientConfigs(envConf, clConf, fileConf)
+	return *cfg
 }

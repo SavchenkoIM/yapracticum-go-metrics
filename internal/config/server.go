@@ -198,5 +198,6 @@ func (cfg *ServerConfig) Load() ServerConfig {
 
 	fileConf := getServerConfigFromJSON(confFileName)
 
-	return CombineServerConfigs(envConf, clConf, fileConf)
+	*cfg = CombineServerConfigs(envConf, clConf, fileConf)
+	return *cfg
 }

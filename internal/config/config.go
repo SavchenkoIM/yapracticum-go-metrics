@@ -11,13 +11,6 @@ import (
 	"time"
 )
 
-const (
-	ParType_String = iota
-	ParType_Int64
-	ParType_Duration
-	PrType_Bool
-)
-
 type configParam struct {
 	ParType reflect.Type
 	ParName string
