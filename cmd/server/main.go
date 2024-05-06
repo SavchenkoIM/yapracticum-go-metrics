@@ -67,6 +67,8 @@ func main() {
 
 	shared.Logger = logger
 
+	shared.Logger.Sugar().Debugf("%+v\n", args)
+
 	go DumpDBFile(parentContext, args, dataStorage, logger)
 
 	server := http.Server{Addr: args.Endp,

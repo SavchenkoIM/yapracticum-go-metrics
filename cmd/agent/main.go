@@ -99,6 +99,8 @@ func main() {
 		panic(err)
 	}
 
+	shared.Logger.Sugar().Debugf("%+v\n", args)
+
 	parentContext := context.Background()
 	cWithCancel, cancel := context.WithCancel(parentContext)
 
