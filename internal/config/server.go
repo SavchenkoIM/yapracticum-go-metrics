@@ -20,7 +20,7 @@ type ServerConfig struct {
 	Key             string
 	StoreInterval   time.Duration
 	Restore         bool
-	TrustedSubnet   net.IPNet
+	TrustedSubnet   *net.IPNet
 	UseRSA          bool
 	RSAPrivateKey   rsa.PrivateKey
 }
@@ -155,10 +155,7 @@ func CombineServerConfigs(configs ...serverConfigNull) ServerConfig {
 		Restore:         true,
 		UseRSA:          false,
 		RSAPrivateKey:   rsa.PrivateKey{},
-		TrustedSubnet: net.IPNet{
-			IP:   []byte{0, 0, 0, 0},
-			Mask: []byte{0, 0, 0, 0},
-		},
+		TrustedSubnet:   nil,
 	}
 
 	slices.Reverse(configs)
@@ -175,7 +172,7 @@ func CombineServerConfigs(configs ...serverConfigNull) ServerConfig {
 		if cfg.TrustedSubnet != nil {
 			_, ipNet, err := net.ParseCIDR(*cfg.TrustedSubnet)
 			if err == nil {
-				serverConfig.TrustedSubnet = *ipNet
+				serverConfig.TrustedSubnet = ipNet
 			}
 		}
 
