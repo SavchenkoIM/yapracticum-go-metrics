@@ -4,6 +4,7 @@ import (
 	"crypto/rsa"
 	"encoding/json"
 	"flag"
+	"github.com/ianschenck/envflag"
 	"os"
 	"slices"
 	"time"
@@ -67,16 +68,16 @@ func getClientConfigFromCLArgs() clientConfigNull {
 // Parses Agent configuration from Enviroment Vars
 func getClientConfigFromEnvVar() clientConfigNull {
 	clientConfig := clientConfigNull{}
-	endp := flag.String("ADDRESS", "localhost:8080", "Server endpoint address:port")
-	pollInterval := flag.Float64("POLL_INTERVAL", 2, "pollInterval")
-	reportInterval := flag.Float64("REPORT_INTERVAL", 10, "reportInterval")
-	key := flag.String("KEY", "", "Key")
-	rateLimit := flag.Int64("RATE_LIMIT", 5, "Limit of simultaneous requests")
-	rsakey := flag.String("CRYPTO_KEY", "", "RSA public key file name")
-	configFile := flag.String("CONFIG", "", "Config file")
-	flag.Parse()
+	endp := envflag.String("ADDRESS", ":8080", "Server endpoint address:port")
+	pollInterval := envflag.Float64("POLL_INTERVAL", 2, "pollInterval")
+	reportInterval := envflag.Float64("REPORT_INTERVAL", 10, "reportInterval")
+	key := envflag.String("KEY", "", "Key")
+	rateLimit := envflag.Int64("RATE_LIMIT", 5, "Limit of simultaneous requests")
+	rsakey := envflag.String("CRYPTO_KEY", "", "RSA public key file name")
+	configFile := envflag.String("CONFIG", "", "Config file")
+	envflag.Parse()
 
-	usedFlags := getProvidedFlags(flag.Visit)
+	usedFlags := getProvidedFlags(envflag.Visit)
 
 	clientConfig.Endp = getParWithSetCheck[string](*endp, slices.Contains(usedFlags, "ADDRESS"))
 	clientConfig.PollInterval = getParWithSetCheck[time.Duration](time.Duration(*pollInterval)*time.Second, slices.Contains(usedFlags, "POLL_INTERVAL"))
