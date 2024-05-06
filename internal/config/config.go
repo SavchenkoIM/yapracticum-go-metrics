@@ -6,18 +6,12 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"flag"
+	"net"
 	"os"
-	"reflect"
 	"time"
 )
 
-type configParam struct {
-	ParType reflect.Type
-	ParName string
-	IsSet   bool
-	Value   interface{}
-}
-
+// Gets provided Command Line flags or and Enviroment Vars of configuration
 func getProvidedFlags(visitFunc func(func(f *flag.Flag))) []string {
 	res := make([]string, 0)
 	visitFunc(func(f *flag.Flag) {
@@ -26,7 +20,7 @@ func getProvidedFlags(visitFunc func(func(f *flag.Flag))) []string {
 	return res
 }
 
-// Returns duraion from string representation (of nil if failed)
+// Returns duration from string representation (of nil if failed)
 func getDurationFromString(sRepr *string) *time.Duration {
 	if sRepr == nil {
 		return nil
@@ -38,6 +32,7 @@ func getDurationFromString(sRepr *string) *time.Duration {
 	return &d
 }
 
+// Returns nil if parameter does not set, otherwise pointer to the parameter
 func getParWithSetCheck[S any](val S, isSet bool) *S {
 	if !isSet {
 		return nil
@@ -45,6 +40,7 @@ func getParWithSetCheck[S any](val S, isSet bool) *S {
 	return &val
 }
 
+// Sets dst value equal to src value if src is not nil, otherwise do nothing
 func combineParameter[S any](dst *S, src *S) {
 	if src == nil {
 		return
@@ -52,6 +48,7 @@ func combineParameter[S any](dst *S, src *S) {
 	*dst = *src
 }
 
+// Returns RSA Private Key object stored in file
 func getRSAPrivateKey(filename string) (PK rsa.PrivateKey, UseRSA bool) {
 	var key rsa.PrivateKey
 	if filename == "" {
@@ -68,6 +65,7 @@ func getRSAPrivateKey(filename string) (PK rsa.PrivateKey, UseRSA bool) {
 	return *privateKey, true
 }
 
+// Returns RSA Public Key object stored in file
 func getRSAPublicKey(filename string) (PK rsa.PublicKey, UseRSA bool) {
 	var key rsa.PublicKey
 	if filename == "" {
@@ -82,4 +80,13 @@ func getRSAPublicKey(filename string) (PK rsa.PublicKey, UseRSA bool) {
 		return key, false
 	}
 	return *publicKey, true
+}
+
+// Returns IP of interface, used to connect to desired IP
+func getPreferredIP(url string) net.IP {
+	conn, err := net.Dial("udp", url)
+	if err != nil {
+		return nil
+	}
+	return conn.LocalAddr().(*net.UDPAddr).IP
 }

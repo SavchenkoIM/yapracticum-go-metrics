@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"github.com/ianschenck/envflag"
+	"net"
 	"os"
 	"slices"
 	"time"
@@ -19,6 +20,7 @@ type ClientConfig struct {
 	ReportInterval time.Duration
 	UseRSA         bool
 	RSAPublicKey   rsa.PublicKey
+	RealIP         net.IP
 }
 
 type clientConfigNull struct {
@@ -170,5 +172,7 @@ func (cfg *ClientConfig) Load() ClientConfig {
 	fileConf := getClientConfigFromJSON(confFileName)
 
 	*cfg = CombineClientConfigs(envConf, clConf, fileConf)
+	cfg.RealIP = getPreferredIP(cfg.Endp)
+
 	return *cfg
 }

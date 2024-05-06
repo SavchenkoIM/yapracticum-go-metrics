@@ -201,6 +201,9 @@ func (ths *MetricsHandler) SendData(ctx context.Context) {
 	req, _ := http.NewRequest(http.MethodPost, "http://"+srvEndp+"/updates/", bb)
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
+	if ths.cfg.RealIP != nil {
+		req.Header.Set("X-Real-IP", ths.cfg.RealIP.String())
+	}
 
 	addHmacSha256(req, jm, ths.cfg.Key)
 

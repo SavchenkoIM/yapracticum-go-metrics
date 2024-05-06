@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"github.com/ianschenck/envflag"
+	"net"
 	"os"
 	"slices"
 	"time"
@@ -19,7 +20,7 @@ type ServerConfig struct {
 	Key             string
 	StoreInterval   time.Duration
 	Restore         bool
-	TrustedSubnet   string
+	TrustedSubnet   net.IPNet
 	UseRSA          bool
 	RSAPrivateKey   rsa.PrivateKey
 }
@@ -154,6 +155,10 @@ func CombineServerConfigs(configs ...serverConfigNull) ServerConfig {
 		Restore:         true,
 		UseRSA:          false,
 		RSAPrivateKey:   rsa.PrivateKey{},
+		TrustedSubnet: net.IPNet{
+			IP:   []byte{0, 0, 0, 0},
+			Mask: []byte{0, 0, 0, 0},
+		},
 	}
 
 	slices.Reverse(configs)
@@ -165,7 +170,16 @@ func CombineServerConfigs(configs ...serverConfigNull) ServerConfig {
 		combineParameter(&serverConfig.Key, cfg.Key)
 		combineParameter(&serverConfig.StoreInterval, cfg.StoreInterval)
 		combineParameter(&serverConfig.Restore, cfg.Restore)
-		combineParameter(&serverConfig.TrustedSubnet, cfg.TrustedSubnet)
+
+		// Trusted subnet
+		if cfg.TrustedSubnet != nil {
+			_, ipNet, err := net.ParseCIDR(*cfg.TrustedSubnet)
+			if err == nil {
+				serverConfig.TrustedSubnet = *ipNet
+			}
+		}
+
+		// RSA
 		var (
 			rsaUse bool
 			rsaKey rsa.PrivateKey

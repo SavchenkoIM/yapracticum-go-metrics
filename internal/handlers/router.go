@@ -12,7 +12,11 @@ import (
 func Router(h Handlers, pm *prom.CustomPromMetrics) chi.Router {
 
 	r := chi.NewRouter()
-	r.Use(middleware.WithRSA(h.cfg), middleware.GzipHandler, middleware.WithLogging, middleware.Prom(pm))
+	r.Use(middleware.WithTrustedNetworkCheck(h.cfg.TrustedSubnet),
+		middleware.WithRSA(h.cfg),
+		middleware.GzipHandler,
+		middleware.WithLogging,
+		middleware.Prom(pm))
 	r.Route("/", func(r chi.Router) {
 		r.Get("/", h.GetAllMetricsHandler)
 		r.Route("/updates", func(r chi.Router) {
