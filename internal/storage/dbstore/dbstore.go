@@ -120,6 +120,10 @@ func (ths *MetricFloat64) applyValueDBBatch(ctx context.Context, tx *sql.Tx, dat
 		ctr++
 	}
 
+	if ctr == 0 {
+		return nil
+	}
+
 	err := ths.createTable(ctx, tx)
 	if err != nil {
 		return err
@@ -301,17 +305,20 @@ func (ths *MetricInt64Sum) applyValueDBBatch(ctx context.Context, tx *sql.Tx, da
 		ctr++
 	}
 
+	if ctr == 0 {
+		return nil
+	}
+
 	err := ths.createTable(ctx, tx)
 	if err != nil {
 		return err
 	}
 
-	query := `INSERT INTO "gauges" ("Key", "Value") VALUES ` + strings.Join(paramsStr, ",") + " "
-	query += `ON CONFLICT ("Key") DO UPDATE SET "Value" = EXCLUDED."Value"`
+	query := `INSERT INTO "counters" ("Key", "Value") VALUES ` + strings.Join(paramsStr, ",") + " "
+	query += `ON CONFLICT ("Key") DO UPDATE SET "Value" = "counters"."Value" + EXCLUDED."Value"`
 
 	_, err = tx.Exec(query, paramsVals...)
 	if err != nil {
-		println(err.Error())
 		return err
 	}
 
