@@ -104,7 +104,7 @@ func (ths *MetricFloat64) applyValueDB(ctx context.Context, tx *sql.Tx, key stri
 
 func (ths *MetricFloat64) applyValueDBBatch(ctx context.Context, tx *sql.Tx, data map[string]float64) error {
 
-	if data == nil || len(data) == 0 {
+	if data == nil {
 		return nil
 	}
 
@@ -285,7 +285,7 @@ func (ths *MetricInt64Sum) applyValueDB(ctx context.Context, tx *sql.Tx, key str
 
 func (ths *MetricInt64Sum) applyValueDBBatch(ctx context.Context, tx *sql.Tx, data map[string]int64) error {
 
-	if data == nil || len(data) == 0 {
+	if data == nil {
 		return nil
 	}
 
