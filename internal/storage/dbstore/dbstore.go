@@ -73,13 +73,8 @@ func (ths *MetricFloat64) createTable(ctx context.Context, tx *sql.Tx) error {
     PRIMARY KEY ("Key")
 )`
 
-	var err error
-
-	if tx == nil {
-		_, err = ths.db.ExecContext(ctx, crTableCommand)
-	} else {
-		_, err = tx.ExecContext(ctx, crTableCommand)
-	}
+	db := NewTxManager(ths.db, tx)
+	_, err := db.ExecContext(ctx, crTableCommand)
 
 	return err
 }
@@ -89,12 +84,8 @@ func (ths *MetricFloat64) applyValueDB(ctx context.Context, tx *sql.Tx, key stri
 	// Fails when executed in transaction if duplicate keys exists
 	query := `INSERT INTO "gauges" ("Key", "Value") VALUES ($1, $2) ON CONFLICT ("Key") DO UPDATE SET "Value" = EXCLUDED."Value"`
 
-	var err error
-	if tx == nil {
-		_, err = ths.db.ExecContext(ctx, query, key, value)
-	} else {
-		_, err = tx.ExecContext(ctx, query, key, value)
-	}
+	db := NewTxManager(ths.db, tx)
+	_, err := db.ExecContext(ctx, query, key, value)
 
 	if err != nil {
 		return err
@@ -132,7 +123,8 @@ func (ths *MetricFloat64) applyValueDBBatch(ctx context.Context, tx *sql.Tx, dat
 	query := `INSERT INTO "gauges" ("Key", "Value") VALUES ` + strings.Join(paramsStr, ",") + " "
 	query += `ON CONFLICT ("Key") DO UPDATE SET "Value" = EXCLUDED."Value"`
 
-	_, err = tx.Exec(query, paramsVals...)
+	db := NewTxManager(ths.db, tx)
+	_, err = db.ExecContext(ctx, query, paramsVals...)
 	if err != nil {
 		println(err.Error())
 		return err
@@ -259,12 +251,8 @@ func (ths *MetricInt64Sum) createTable(ctx context.Context, tx *sql.Tx) error {
 	PRIMARY KEY ("Key")
 )`
 
-	var err error
-	if tx == nil {
-		_, err = ths.db.ExecContext(ctx, crTableCommand)
-	} else {
-		_, err = tx.ExecContext(ctx, crTableCommand)
-	}
+	db := NewTxManager(ths.db, tx)
+	_, err := db.ExecContext(ctx, crTableCommand)
 
 	return err
 }
@@ -273,12 +261,8 @@ func (ths *MetricInt64Sum) applyValueDB(ctx context.Context, tx *sql.Tx, key str
 
 	query := `INSERT INTO "counters" ("Key", "Value") VALUES ($1, $2) ON CONFLICT ("Key") DO UPDATE SET "Value" = "counters"."Value" + EXCLUDED."Value"`
 
-	var err error
-	if tx == nil {
-		_, err = ths.db.ExecContext(ctx, query, key, value)
-	} else {
-		_, err = tx.ExecContext(ctx, query, key, value)
-	}
+	db := NewTxManager(ths.db, tx)
+	_, err := db.ExecContext(ctx, query, key, value)
 
 	if err != nil {
 		return err
@@ -317,7 +301,8 @@ func (ths *MetricInt64Sum) applyValueDBBatch(ctx context.Context, tx *sql.Tx, da
 	query := `INSERT INTO "counters" ("Key", "Value") VALUES ` + strings.Join(paramsStr, ",") + " "
 	query += `ON CONFLICT ("Key") DO UPDATE SET "Value" = "counters"."Value" + EXCLUDED."Value"`
 
-	_, err = tx.Exec(query, paramsVals...)
+	db := NewTxManager(ths.db, tx)
+	_, err = db.ExecContext(ctx, query, paramsVals...)
 	if err != nil {
 		return err
 	}
@@ -346,7 +331,6 @@ func (ths *MetricInt64Sum) getValueDB(ctx context.Context, keys ...string) (map[
 
 	res := make(map[string]int64)
 
-	var err error
 	rows, err := ths.db.QueryContext(ctx, query, ks...)
 
 	if err != nil {
