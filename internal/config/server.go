@@ -13,16 +13,17 @@ import (
 
 // Server configuration
 type ServerConfig struct {
-	Endp            string
-	EndpProm        string
-	FileStoragePath string
-	ConnString      string
-	Key             string
-	StoreInterval   time.Duration
-	Restore         bool
-	TrustedSubnet   *net.IPNet
-	UseRSA          bool
-	RSAPrivateKey   rsa.PrivateKey
+	Endp              string
+	EndpProm          string
+	FileStoragePath   string
+	ConnString        string
+	Key               string
+	StoreInterval     time.Duration
+	Restore           bool
+	TrustedSubnet     *net.IPNet
+	UseRSA            bool
+	RSAPrivateKey     rsa.PrivateKey
+	BandwidthPriority bool
 }
 
 // Raw server configuration with possible null fields
@@ -36,6 +37,7 @@ type serverConfigNull struct {
 	Restore           *bool
 	TrustedSubnet     *string
 	RSAPrivateKeyFile *string
+	BandwidthPriority *bool
 	ConfigFile        *string
 }
 
@@ -62,21 +64,23 @@ func getServerConfigFromCLArgs() serverConfigNull {
 	key := flag.String("k", "", "Key")
 	trustedSubnet := flag.String("t", "", "Trusted Subnet")
 	rsakey := flag.String("crypto-key", "", "RSA private key file name")
+	bandwidthPriority := flag.Bool("b", false, "Bandwidth priority")
 	configFile := flag.String("c", "", "Config file")
 	flag.StringVar(configFile, "config", "", "Config file")
 	flag.Parse()
 
 	usedFlags := getProvidedFlags(flag.Visit)
 
-	serverConfig.Endp = getParWithSetCheck[string](*endp, slices.Contains(usedFlags, "a"))
-	serverConfig.EndpProm = getParWithSetCheck[string](*endpprom, slices.Contains(usedFlags, "ap"))
-	serverConfig.StoreInterval = getParWithSetCheck[time.Duration](time.Duration(*storeInterval)*time.Second, slices.Contains(usedFlags, "i"))
-	serverConfig.FileStoragePath = getParWithSetCheck[string](*fileStoragePath, slices.Contains(usedFlags, "f"))
-	serverConfig.Restore = getParWithSetCheck[bool](*restoreData, slices.Contains(usedFlags, "r"))
-	serverConfig.TrustedSubnet = getParWithSetCheck[string](*trustedSubnet, slices.Contains(usedFlags, "t"))
-	serverConfig.ConnString = getParWithSetCheck[string](*connString, slices.Contains(usedFlags, "d"))
-	serverConfig.Key = getParWithSetCheck[string](*key, slices.Contains(usedFlags, "k"))
-	serverConfig.RSAPrivateKeyFile = getParWithSetCheck[string](*rsakey, slices.Contains(usedFlags, "crypto-key") || slices.Contains(usedFlags, "c"))
+	serverConfig.Endp = getParWithSetCheck(*endp, slices.Contains(usedFlags, "a"))
+	serverConfig.EndpProm = getParWithSetCheck(*endpprom, slices.Contains(usedFlags, "ap"))
+	serverConfig.StoreInterval = getParWithSetCheck(time.Duration(*storeInterval)*time.Second, slices.Contains(usedFlags, "i"))
+	serverConfig.FileStoragePath = getParWithSetCheck(*fileStoragePath, slices.Contains(usedFlags, "f"))
+	serverConfig.Restore = getParWithSetCheck(*restoreData, slices.Contains(usedFlags, "r"))
+	serverConfig.TrustedSubnet = getParWithSetCheck(*trustedSubnet, slices.Contains(usedFlags, "t"))
+	serverConfig.ConnString = getParWithSetCheck(*connString, slices.Contains(usedFlags, "d"))
+	serverConfig.Key = getParWithSetCheck(*key, slices.Contains(usedFlags, "k"))
+	serverConfig.RSAPrivateKeyFile = getParWithSetCheck(*rsakey, slices.Contains(usedFlags, "crypto-key") || slices.Contains(usedFlags, "c"))
+	serverConfig.BandwidthPriority = getParWithSetCheck(*bandwidthPriority, slices.Contains(usedFlags, "b"))
 	serverConfig.ConfigFile = getParWithSetCheck[string](*configFile, slices.Contains(usedFlags, "c") || slices.Contains(usedFlags, "config"))
 
 	return serverConfig
@@ -94,6 +98,7 @@ func getServerConfigFromEnvVar() serverConfigNull {
 	key := envflag.String("KEY", "", "Key")
 	trustedSubnet := flag.String("TRUSTED_SUBNET", "", "Trusted Subnet")
 	rsakey := envflag.String("CRYPTO_KEY", "", "RSA private key file name")
+	bandwidthPriority := envflag.Bool("BANDWIDTH_PRIORITY", false, "Bandwidth priority")
 	configFile := envflag.String("CONFIG", "", "Config file")
 	envflag.Parse()
 
@@ -108,6 +113,7 @@ func getServerConfigFromEnvVar() serverConfigNull {
 	serverConfig.ConnString = getParWithSetCheck[string](*connString, slices.Contains(usedFlags, "DATABASE_DSN"))
 	serverConfig.Key = getParWithSetCheck[string](*key, slices.Contains(usedFlags, "KEY"))
 	serverConfig.RSAPrivateKeyFile = getParWithSetCheck[string](*rsakey, slices.Contains(usedFlags, "CRYPTO_KEY"))
+	serverConfig.BandwidthPriority = getParWithSetCheck(*bandwidthPriority, slices.Contains(usedFlags, "BANDWIDTH_PRIORITY"))
 	serverConfig.ConfigFile = getParWithSetCheck[string](*configFile, slices.Contains(usedFlags, "CONFIG"))
 
 	return serverConfig
@@ -140,22 +146,24 @@ func getServerConfigFromJSON(filename string) serverConfigNull {
 	serverConfig.ConnString = scf.DatabaseDsn
 	serverConfig.Key = nil
 	serverConfig.RSAPrivateKeyFile = scf.CryptoKey
+	serverConfig.BandwidthPriority = nil
 
 	return serverConfig
 }
 
 func CombineServerConfigs(configs ...serverConfigNull) ServerConfig {
 	serverConfig := ServerConfig{
-		Endp:            ":8080",
-		EndpProm:        ":18080",
-		FileStoragePath: "/tmp/metrics-db.json",
-		ConnString:      "",
-		Key:             "",
-		StoreInterval:   300,
-		Restore:         true,
-		UseRSA:          false,
-		RSAPrivateKey:   rsa.PrivateKey{},
-		TrustedSubnet:   nil,
+		Endp:              ":8080",
+		EndpProm:          ":18080",
+		FileStoragePath:   "/tmp/metrics-db.json",
+		ConnString:        "",
+		Key:               "",
+		StoreInterval:     300,
+		Restore:           true,
+		UseRSA:            false,
+		RSAPrivateKey:     rsa.PrivateKey{},
+		TrustedSubnet:     nil,
+		BandwidthPriority: false,
 	}
 
 	slices.Reverse(configs)
@@ -167,6 +175,7 @@ func CombineServerConfigs(configs ...serverConfigNull) ServerConfig {
 		combineParameter(&serverConfig.Key, cfg.Key)
 		combineParameter(&serverConfig.StoreInterval, cfg.StoreInterval)
 		combineParameter(&serverConfig.Restore, cfg.Restore)
+		combineParameter(&serverConfig.BandwidthPriority, cfg.BandwidthPriority)
 
 		// Trusted subnet
 		if cfg.TrustedSubnet != nil {

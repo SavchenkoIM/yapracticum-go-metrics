@@ -222,7 +222,7 @@ func (ms *FileStore) Load(ctx context.Context) error {
 	return nil
 }
 
-func (ms *FileStore) WriteDataMulty(ctx context.Context, metrics storagecommons.MetricsDB) error {
+func (ms *FileStore) WriteDataMulti(ctx context.Context, metrics storagecommons.MetricsDB) error {
 	for _, record := range metrics.MetricsDB {
 		_, err := ms.WriteData(ctx, record)
 		if err != nil {

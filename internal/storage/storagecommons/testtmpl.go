@@ -48,7 +48,7 @@ func PerformStoragerTest(t *testing.T, db Storager) {
 		{ID: "cm1", MType: "counter", Delta: &i},
 	}
 	t.Run("Multiple Write", func(t *testing.T) {
-		err := db.WriteDataMulty(ctx, mdb)
+		err := db.WriteDataMulti(ctx, mdb)
 		assert.NoError(t, err)
 	})
 

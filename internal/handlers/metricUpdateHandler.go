@@ -147,7 +147,7 @@ func (h Handlers) MultiMetricsUpdateHandlerREST(res http.ResponseWriter, req *ht
 		return
 	}
 
-	err = h.dataStorage.WriteDataMulty(req.Context(), dta)
+	err = h.dataStorage.WriteDataMulti(req.Context(), dta)
 
 	if err == nil {
 		return

@@ -30,7 +30,7 @@ type Storager interface {
 	// Destructor for Storage
 	Close(ctx context.Context) error
 	// Packet metrics write
-	WriteDataMulty(ctx context.Context, metrics MetricsDB) error
+	WriteDataMulti(ctx context.Context, metrics MetricsDB) error
 	// Single metric write
 	WriteData(ctx context.Context, metrics Metrics) (Metrics, error)
 	// Returns JSON serializable structure with requested metric data

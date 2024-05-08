@@ -23,6 +23,7 @@ type ClientConfig struct {
 	RealIP         net.IP
 }
 
+// Raw Agent configuration with possible null fields
 type clientConfigNull struct {
 	Endp             *string
 	Key              *string
@@ -34,6 +35,7 @@ type clientConfigNull struct {
 	ConfigFile       *string
 }
 
+// Representation of JSON config file
 type ClientConfigFile struct {
 	Address        *string `json:"address,omitempty"`
 	ReportInterval *string `json:"report_interval,omitempty"`
