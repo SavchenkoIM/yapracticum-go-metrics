@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/storage/storagecommons"
@@ -16,12 +17,19 @@ import (
 
 // Postgres DB storage description (see Storager)
 type DBStore struct {
-	Gauges         *MetricFloat64
-	Counters       *MetricInt64Sum
-	syncWrite      bool
-	cachedCounters map[string]int64
-	cachedGauges   map[string]float64
-	db             *sql.DB
+	Gauges              *MetricFloat64
+	Counters            *MetricInt64Sum
+	syncWrite           bool
+	cachedCounters      ThreadSafeMap[int64]
+	cachedGauges        ThreadSafeMap[float64]
+	useCache            bool
+	cachedWriteInterval time.Duration
+	db                  *sql.DB
+	delayedWriteMutex   *sync.Mutex
+	delayedWriteCond    *sync.Cond
+	wgServer            *sync.WaitGroup
+	wgWorker            *sync.WaitGroup
+	delayedWriteResult  error
 }
 
 func New(ctx context.Context, args config.ServerConfig, logger *zap.Logger) (*DBStore, error) {
@@ -44,6 +52,24 @@ func New(ctx context.Context, args config.ServerConfig, logger *zap.Logger) (*DB
 
 	ms.Gauges.db = ms.db
 	ms.Counters.db = ms.db
+
+	ms.useCache = args.BandwidthPriority
+	ms.cachedWriteInterval = args.CachedWriteInterval
+	if ms.useCache {
+		ms.delayedWriteMutex = &sync.Mutex{}
+		ms.delayedWriteCond = sync.NewCond(&sync.Mutex{})
+		ms.wgServer = &sync.WaitGroup{}
+		ms.wgWorker = &sync.WaitGroup{}
+		ms.cachedCounters = ThreadSafeMap[int64]{
+			mutex: sync.RWMutex{},
+			data:  make(map[string]int64),
+		}
+		ms.cachedGauges = ThreadSafeMap[float64]{
+			mutex: sync.RWMutex{},
+			data:  make(map[string]float64),
+		}
+		go ms.delayedWriteWorker(ctx)
+	}
 
 	if args.Restore {
 		err := ms.Load(ctx)
@@ -398,18 +424,51 @@ func (ths *MetricInt64Sum) WriteDataPP(ctx context.Context, key string, value in
 	return nil
 }
 
-// DumpLoad
-
-func (ms *DBStore) Dump(ctx context.Context) error {
-	return nil
-}
-
-func (ms *DBStore) Load(ctx context.Context) error {
-	return nil
-}
-
+// Common point for writing data
 func (ms *DBStore) WriteDataMulti(ctx context.Context, metrics storagecommons.MetricsDB) error {
-	return ms.WriteDataMultiBatch(ctx, metrics)
+	if !ms.useCache {
+		return ms.WriteDataMultiBatch(ctx, metrics)
+	} else {
+		// Wait for worker
+		ms.wgWorker.Wait()
+
+		ms.wgServer.Add(1)
+		// Fill maps
+		// Check for errors
+		for _, val := range metrics.MetricsDB {
+			switch val.MType {
+			case "counter":
+				if val.Delta == nil {
+					return errors.New("no Delta data provided")
+				}
+			case "gauge":
+				if val.Value == nil {
+					return errors.New("no Value data provided")
+				}
+			default:
+				return errors.New("Unknown metric type: " + val.MType)
+			}
+		}
+		// Filling data
+		for _, val := range metrics.MetricsDB {
+			val := val
+			switch val.MType {
+			case "counter":
+				ms.cachedCounters.Inc(val.ID, *val.Delta)
+			case "gauge":
+				ms.cachedGauges.Set(val.ID, *val.Value)
+			}
+		}
+		// End Fill maps
+
+		ms.delayedWriteCond.L.Lock()
+		ms.wgServer.Done()
+
+		// Waiting for release
+		ms.delayedWriteCond.Wait()
+		ms.delayedWriteCond.L.Unlock()
+		return ms.delayedWriteResult
+	}
 }
 
 func (ms *DBStore) WriteData(ctx context.Context, metrics storagecommons.Metrics) (rMetrics storagecommons.Metrics, rError error) {
@@ -423,6 +482,54 @@ func (ms *DBStore) WriteData(ctx context.Context, metrics storagecommons.Metrics
 	}
 
 	return
+}
+
+// Batch write Raw
+func (ms *DBStore) WriteDataMultiBatchRaw(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
+
+	tx, _ := ms.db.BeginTx(ctx, nil)
+
+	ms.Gauges.applyValueDBBatch(ctx, tx, gauges)
+	ms.Counters.applyValueDBBatch(ctx, tx, counters)
+
+	err := tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Batch write
+func (ms *DBStore) WriteDataMultiBatch(ctx context.Context, metrics storagecommons.MetricsDB) error {
+
+	gauges := map[string]float64{}
+	counters := map[string]int64{}
+
+	for _, val := range metrics.MetricsDB {
+		val := val
+		switch val.MType {
+		case "counter":
+			if val.Delta == nil {
+				return errors.New("no Delta data provided")
+			}
+			counters[val.ID] += *val.Delta
+		case "gauge":
+			if val.Value == nil {
+				return errors.New("no Value data provided")
+			}
+			gauges[val.ID] = *val.Value
+		default:
+			return errors.New("Unknown metric type: " + val.MType)
+		}
+	}
+
+	err := ms.WriteDataMultiBatchRaw(ctx, gauges, counters)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (ms *DBStore) ReadData(ctx context.Context, metrics storagecommons.Metrics) (storagecommons.Metrics, error) {
@@ -482,54 +589,12 @@ func (ms *DBStore) Ping(ctx context.Context) error {
 	return ms.db.PingContext(ctxw)
 }
 
-// Batch write Raw (does not pass github tests)
-func (ms *DBStore) WriteDataMultiBatchRaw(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
+// DumpLoad
 
-	tx, _ := ms.db.BeginTx(ctx, nil)
-
-	ms.Gauges.applyValueDBBatch(ctx, tx, gauges)
-	ms.Counters.applyValueDBBatch(ctx, tx, counters)
-
-	err := tx.Commit()
-	if err != nil {
-		return err
-	}
-
+func (ms *DBStore) Dump(ctx context.Context) error {
 	return nil
 }
 
-// Batch write (does not pass github tests)
-func (ms *DBStore) WriteDataMultiBatch(ctx context.Context, metrics storagecommons.MetricsDB) error {
-
-	gauges := map[string]float64{}
-	counters := map[string]int64{}
-
-	for _, val := range metrics.MetricsDB {
-		val := val
-		switch val.MType {
-		case "counter":
-			if val.Delta == nil {
-				return errors.New("no Delta data provided")
-			}
-			counters[val.ID] += *val.Delta
-		case "gauge":
-			if val.Value == nil {
-				return errors.New("no Value data provided")
-			}
-			gauges[val.ID] = *val.Value
-		default:
-			return errors.New("Unknown metric type: " + val.MType)
-		}
-	}
-
-	err := ms.WriteDataMultiBatchRaw(ctx, gauges, counters)
-	if err != nil {
-		return err
-	}
-
-	if ms.syncWrite {
-		ms.Dump(ctx)
-	}
-
+func (ms *DBStore) Load(ctx context.Context) error {
 	return nil
 }

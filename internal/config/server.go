@@ -13,32 +13,34 @@ import (
 
 // Server configuration
 type ServerConfig struct {
-	Endp              string
-	EndpProm          string
-	FileStoragePath   string
-	ConnString        string
-	Key               string
-	StoreInterval     time.Duration
-	Restore           bool
-	TrustedSubnet     *net.IPNet
-	UseRSA            bool
-	RSAPrivateKey     rsa.PrivateKey
-	BandwidthPriority bool
+	Endp                string
+	EndpProm            string
+	FileStoragePath     string
+	ConnString          string
+	Key                 string
+	StoreInterval       time.Duration
+	Restore             bool
+	TrustedSubnet       *net.IPNet
+	UseRSA              bool
+	RSAPrivateKey       rsa.PrivateKey
+	BandwidthPriority   bool
+	CachedWriteInterval time.Duration
 }
 
 // Raw server configuration with possible null fields
 type serverConfigNull struct {
-	Endp              *string
-	EndpProm          *string
-	FileStoragePath   *string
-	ConnString        *string
-	Key               *string
-	StoreInterval     *time.Duration
-	Restore           *bool
-	TrustedSubnet     *string
-	RSAPrivateKeyFile *string
-	BandwidthPriority *bool
-	ConfigFile        *string
+	Endp                *string
+	EndpProm            *string
+	FileStoragePath     *string
+	ConnString          *string
+	Key                 *string
+	StoreInterval       *time.Duration
+	Restore             *bool
+	TrustedSubnet       *string
+	RSAPrivateKeyFile   *string
+	BandwidthPriority   *bool
+	CachedWriteInterval *time.Duration
+	ConfigFile          *string
 }
 
 // Representation of JSON config file
@@ -64,7 +66,7 @@ func getServerConfigFromCLArgs() serverConfigNull {
 	key := flag.String("k", "", "Key")
 	trustedSubnet := flag.String("t", "", "Trusted Subnet")
 	rsakey := flag.String("crypto-key", "", "RSA private key file name")
-	bandwidthPriority := flag.Bool("b", false, "Bandwidth priority")
+	cachedWriteInterval := flag.Int64("cwi", 0, "Cached write interval, ms")
 	configFile := flag.String("c", "", "Config file")
 	flag.StringVar(configFile, "config", "", "Config file")
 	flag.Parse()
@@ -80,7 +82,7 @@ func getServerConfigFromCLArgs() serverConfigNull {
 	serverConfig.ConnString = getParWithSetCheck(*connString, slices.Contains(usedFlags, "d"))
 	serverConfig.Key = getParWithSetCheck(*key, slices.Contains(usedFlags, "k"))
 	serverConfig.RSAPrivateKeyFile = getParWithSetCheck(*rsakey, slices.Contains(usedFlags, "crypto-key") || slices.Contains(usedFlags, "c"))
-	serverConfig.BandwidthPriority = getParWithSetCheck(*bandwidthPriority, slices.Contains(usedFlags, "b"))
+	serverConfig.CachedWriteInterval = getParWithSetCheck(time.Duration(*cachedWriteInterval)*time.Millisecond, slices.Contains(usedFlags, "cwi"))
 	serverConfig.ConfigFile = getParWithSetCheck[string](*configFile, slices.Contains(usedFlags, "c") || slices.Contains(usedFlags, "config"))
 
 	return serverConfig
@@ -96,9 +98,9 @@ func getServerConfigFromEnvVar() serverConfigNull {
 	restoreData := envflag.Bool("RESTORE", true, "Restore data from disc")
 	connString := envflag.String("DATABASE_DSN", "", "DB Connection string")
 	key := envflag.String("KEY", "", "Key")
-	trustedSubnet := flag.String("TRUSTED_SUBNET", "", "Trusted Subnet")
+	trustedSubnet := envflag.String("TRUSTED_SUBNET", "", "Trusted Subnet")
 	rsakey := envflag.String("CRYPTO_KEY", "", "RSA private key file name")
-	bandwidthPriority := envflag.Bool("BANDWIDTH_PRIORITY", false, "Bandwidth priority")
+	cachedWriteInterval := envflag.Int64("CACHED_WRITE_INTERVAL", 0, "Cached write interval, ms")
 	configFile := envflag.String("CONFIG", "", "Config file")
 	envflag.Parse()
 
@@ -113,7 +115,7 @@ func getServerConfigFromEnvVar() serverConfigNull {
 	serverConfig.ConnString = getParWithSetCheck[string](*connString, slices.Contains(usedFlags, "DATABASE_DSN"))
 	serverConfig.Key = getParWithSetCheck[string](*key, slices.Contains(usedFlags, "KEY"))
 	serverConfig.RSAPrivateKeyFile = getParWithSetCheck[string](*rsakey, slices.Contains(usedFlags, "CRYPTO_KEY"))
-	serverConfig.BandwidthPriority = getParWithSetCheck(*bandwidthPriority, slices.Contains(usedFlags, "BANDWIDTH_PRIORITY"))
+	serverConfig.CachedWriteInterval = getParWithSetCheck(time.Duration(*cachedWriteInterval)*time.Millisecond, slices.Contains(usedFlags, "cwi"))
 	serverConfig.ConfigFile = getParWithSetCheck[string](*configFile, slices.Contains(usedFlags, "CONFIG"))
 
 	return serverConfig
@@ -146,7 +148,7 @@ func getServerConfigFromJSON(filename string) serverConfigNull {
 	serverConfig.ConnString = scf.DatabaseDsn
 	serverConfig.Key = nil
 	serverConfig.RSAPrivateKeyFile = scf.CryptoKey
-	serverConfig.BandwidthPriority = nil
+	serverConfig.CachedWriteInterval = nil
 
 	return serverConfig
 }
@@ -175,7 +177,12 @@ func CombineServerConfigs(configs ...serverConfigNull) ServerConfig {
 		combineParameter(&serverConfig.Key, cfg.Key)
 		combineParameter(&serverConfig.StoreInterval, cfg.StoreInterval)
 		combineParameter(&serverConfig.Restore, cfg.Restore)
-		combineParameter(&serverConfig.BandwidthPriority, cfg.BandwidthPriority)
+		combineParameter(&serverConfig.CachedWriteInterval, cfg.CachedWriteInterval)
+
+		// Caching
+		if cfg.CachedWriteInterval != nil && *cfg.CachedWriteInterval > time.Duration(0) {
+			serverConfig.BandwidthPriority = true
+		}
 
 		// Trusted subnet
 		if cfg.TrustedSubnet != nil {

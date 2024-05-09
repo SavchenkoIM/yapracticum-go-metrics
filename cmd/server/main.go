@@ -58,7 +58,7 @@ func main() {
 		panic(err)
 	}
 
-	var parentContext context.Context
+	var parentContext context.Context = context.Background()
 	dataStorage, err := storage.InitStorage(parentContext, args, logger)
 	if err != nil {
 		panic(err)
