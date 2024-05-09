@@ -14,6 +14,7 @@ import (
 // Agent configuration
 type ClientConfig struct {
 	Endp           string
+	MProto         string
 	Key            string
 	ReqLimit       int64
 	PollInterval   time.Duration
@@ -26,6 +27,7 @@ type ClientConfig struct {
 // Raw Agent configuration with possible null fields
 type clientConfigNull struct {
 	Endp             *string
+	MProto           *string
 	Key              *string
 	ReqLimit         *int64
 	PollInterval     *time.Duration
@@ -47,6 +49,7 @@ type ClientConfigFile struct {
 func getClientConfigFromCLArgs() clientConfigNull {
 	clientConfig := clientConfigNull{}
 	endp := flag.String("a", "localhost:8080", "Server endpoint address:port")
+	mproto := flag.String("proto", "http", "Exchange protocol: http/grpc")
 	pollInterval := flag.Float64("p", 2, "pollInterval")
 	reportInterval := flag.Float64("r", 10, "reportInterval")
 	key := flag.String("k", "", "Key")
@@ -58,13 +61,14 @@ func getClientConfigFromCLArgs() clientConfigNull {
 
 	usedFlags := getProvidedFlags(flag.Visit)
 
-	clientConfig.Endp = getParWithSetCheck[string](*endp, slices.Contains(usedFlags, "a"))
-	clientConfig.PollInterval = getParWithSetCheck[time.Duration](time.Duration(*pollInterval)*time.Second, slices.Contains(usedFlags, "p"))
-	clientConfig.ReportInterval = getParWithSetCheck[time.Duration](time.Duration(*reportInterval)*time.Second, slices.Contains(usedFlags, "r"))
-	clientConfig.Key = getParWithSetCheck[string](*key, slices.Contains(usedFlags, "k"))
-	clientConfig.ReqLimit = getParWithSetCheck[int64](*rateLimit, slices.Contains(usedFlags, "l"))
-	clientConfig.RSAPublicKeyFile = getParWithSetCheck[string](*rsakey, slices.Contains(usedFlags, "crypto-key") || slices.Contains(usedFlags, "c"))
-	clientConfig.ConfigFile = getParWithSetCheck[string](*configFile, slices.Contains(usedFlags, "c") || slices.Contains(usedFlags, "config"))
+	clientConfig.Endp = getParWithSetCheck(*endp, slices.Contains(usedFlags, "a"))
+	clientConfig.MProto = getParWithSetCheck(*mproto, slices.Contains(usedFlags, "proto"))
+	clientConfig.PollInterval = getParWithSetCheck(time.Duration(*pollInterval)*time.Second, slices.Contains(usedFlags, "p"))
+	clientConfig.ReportInterval = getParWithSetCheck(time.Duration(*reportInterval)*time.Second, slices.Contains(usedFlags, "r"))
+	clientConfig.Key = getParWithSetCheck(*key, slices.Contains(usedFlags, "k"))
+	clientConfig.ReqLimit = getParWithSetCheck(*rateLimit, slices.Contains(usedFlags, "l"))
+	clientConfig.RSAPublicKeyFile = getParWithSetCheck(*rsakey, slices.Contains(usedFlags, "crypto-key") || slices.Contains(usedFlags, "c"))
+	clientConfig.ConfigFile = getParWithSetCheck(*configFile, slices.Contains(usedFlags, "c") || slices.Contains(usedFlags, "config"))
 
 	return clientConfig
 }
@@ -73,6 +77,7 @@ func getClientConfigFromCLArgs() clientConfigNull {
 func getClientConfigFromEnvVar() clientConfigNull {
 	clientConfig := clientConfigNull{}
 	endp := envflag.String("ADDRESS", ":8080", "Server endpoint address:port")
+	mproto := flag.String("PROTO", "http", "Exchange protocol: http/grpc")
 	pollInterval := envflag.Float64("POLL_INTERVAL", 2, "pollInterval")
 	reportInterval := envflag.Float64("REPORT_INTERVAL", 10, "reportInterval")
 	key := envflag.String("KEY", "", "Key")
@@ -84,6 +89,7 @@ func getClientConfigFromEnvVar() clientConfigNull {
 	usedFlags := getProvidedFlags(envflag.Visit)
 
 	clientConfig.Endp = getParWithSetCheck[string](*endp, slices.Contains(usedFlags, "ADDRESS"))
+	clientConfig.MProto = getParWithSetCheck(*mproto, slices.Contains(usedFlags, "PROTO"))
 	clientConfig.PollInterval = getParWithSetCheck[time.Duration](time.Duration(*pollInterval)*time.Second, slices.Contains(usedFlags, "POLL_INTERVAL"))
 	clientConfig.ReportInterval = getParWithSetCheck[time.Duration](time.Duration(*reportInterval)*time.Second, slices.Contains(usedFlags, "REPORT_INTERVAL"))
 	clientConfig.Key = getParWithSetCheck[string](*key, slices.Contains(usedFlags, "KEY"))
@@ -113,6 +119,7 @@ func getClientConfigFromJSON(filename string) clientConfigNull {
 	}
 
 	clientConfig.Endp = ccf.Address
+	clientConfig.MProto = nil
 	clientConfig.PollInterval = getDurationFromString(ccf.PollInterval)
 	clientConfig.ReportInterval = getDurationFromString(ccf.ReportInterval)
 	clientConfig.Key = nil
@@ -126,6 +133,7 @@ func getClientConfigFromJSON(filename string) clientConfigNull {
 func CombineClientConfigs(configs ...clientConfigNull) ClientConfig {
 	clientConfig := ClientConfig{
 		Endp:           ":8080",
+		MProto:         "http",
 		PollInterval:   2 * time.Second,
 		ReportInterval: 10 * time.Second,
 		ReqLimit:       5,
@@ -137,6 +145,7 @@ func CombineClientConfigs(configs ...clientConfigNull) ClientConfig {
 	slices.Reverse(configs)
 	for _, cfg := range configs {
 		combineParameter(&clientConfig.Endp, cfg.Endp)
+		combineParameter(&clientConfig.MProto, cfg.MProto)
 		combineParameter(&clientConfig.PollInterval, cfg.PollInterval)
 		combineParameter(&clientConfig.ReportInterval, cfg.ReportInterval)
 		combineParameter(&clientConfig.ReqLimit, cfg.ReqLimit)
