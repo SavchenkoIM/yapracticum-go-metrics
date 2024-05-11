@@ -85,14 +85,15 @@ type MetricsHandler struct {
 }
 
 // Constructor for MetricsHandler
-func NewMetricsHandler(cfg config.ClientConfig) *MetricsHandler {
+func NewMetricsHandler(ctx context.Context, cfg config.ClientConfig) *MetricsHandler {
 	shared.Logger.Info(cfg.Endp)
 	res := MetricsHandler{
 		metricsMap: make(map[string]metricsData),
 		cfg:        cfg,
 	}
 	if cfg.MProto == "grpc" {
-		res.grpcCli = client.NewMetricsGRPCClient(cfg.Endp, shared.Logger)
+		res.grpcCli = client.NewMetricsGRPCClient(cfg, shared.Logger)
+		res.grpcCli.Start(ctx)
 		res.sendFunc = res.SendDataGRPC
 	} else {
 		res.sendFunc = res.SendDataHTTP

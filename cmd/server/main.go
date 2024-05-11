@@ -80,7 +80,7 @@ func main() {
 	}
 
 	// gRPC start
-	gRPCserver := gserver.NewGRPCMetricsServer(dataStorage, args.EndpGRPC, logger)
+	gRPCserver := gserver.NewGRPCMetricsServer(dataStorage, args, logger)
 	if args.EndpGRPC != "" {
 		gRPCserver.ListenAndServeAsync()
 	}

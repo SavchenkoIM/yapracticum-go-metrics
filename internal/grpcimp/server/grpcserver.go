@@ -5,7 +5,9 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"net"
+	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/grpcimp"
+	"yaprakticum-go-track2/internal/grpcimp/server/middlware"
 	"yaprakticum-go-track2/internal/storage/storagecommons"
 )
 
@@ -14,27 +16,28 @@ type MetricsGRPCServer struct {
 	dataStorage storagecommons.Storager
 	gsrv        *grpc.Server
 	srv         net.Listener
-	addr        string
+	cfg         config.ServerConfig
 	logger      *zap.Logger
 }
 
-func NewGRPCMetricsServer(dataStorage storagecommons.Storager, addr string, logger *zap.Logger) *MetricsGRPCServer {
-	return &MetricsGRPCServer{dataStorage: dataStorage, addr: addr, logger: logger}
+func NewGRPCMetricsServer(dataStorage storagecommons.Storager, cfg config.ServerConfig, logger *zap.Logger) *MetricsGRPCServer {
+	return &MetricsGRPCServer{dataStorage: dataStorage, cfg: cfg, logger: logger}
 }
 
 func (s *MetricsGRPCServer) ListenAndServeAsync() {
 	var err error
-	s.srv, err = net.Listen("tcp", s.addr)
+	s.srv, err = net.Listen("tcp", s.cfg.EndpGRPC)
 	if err != nil {
 		s.logger.Error(err.Error())
 		return
 	}
 
-	s.gsrv = grpc.NewServer()
+	mw := middlware.GRPCServerMiddleware{Cfg: s.cfg}
+	s.gsrv = grpc.NewServer(grpc.ChainUnaryInterceptor(mw.WithLogging, mw.WithHMAC256Check, mw.WithTrustedNetworkCheck))
 	grpcimp.RegisterMetricsServer(s.gsrv, s)
 
 	go func() {
-		s.logger.Info("gRPC server running at " + s.addr)
+		s.logger.Info("gRPC server running at " + s.cfg.EndpGRPC)
 
 		if err := s.gsrv.Serve(s.srv); err != nil {
 			s.logger.Error(err.Error())

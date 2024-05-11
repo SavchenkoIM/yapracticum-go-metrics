@@ -488,6 +488,9 @@ func (ms *DBStore) WriteData(ctx context.Context, metrics storagecommons.Metrics
 func (ms *DBStore) WriteDataMultiBatchRaw(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
 
 	tx, _ := ms.db.BeginTx(ctx, nil)
+	if tx == nil {
+		return errors.New("cannot begin transaction")
+	}
 
 	ms.Gauges.applyValueDBBatch(ctx, tx, gauges)
 	ms.Counters.applyValueDBBatch(ctx, tx, counters)

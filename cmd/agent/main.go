@@ -104,7 +104,7 @@ func main() {
 	parentContext := context.Background()
 	cWithCancel, cancel := context.WithCancel(parentContext)
 
-	mh := metricspoll.NewMetricsHandler(args)
+	mh := metricspoll.NewMetricsHandler(cWithCancel, args)
 	mh.RefreshData(cWithCancel)
 
 	wg := sync.WaitGroup{}
