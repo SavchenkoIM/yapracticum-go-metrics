@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/storage/storagecommons"
@@ -16,10 +17,19 @@ import (
 
 // Postgres DB storage description (see Storager)
 type DBStore struct {
-	Gauges    *MetricFloat64
-	Counters  *MetricInt64Sum
-	syncWrite bool
-	db        *sql.DB
+	Gauges              *MetricFloat64
+	Counters            *MetricInt64Sum
+	syncWrite           bool
+	cachedCounters      ThreadSafeMap[int64]
+	cachedGauges        ThreadSafeMap[float64]
+	useCache            bool
+	cachedWriteInterval time.Duration
+	db                  *sql.DB
+	delayedWriteMutex   *sync.Mutex
+	delayedWriteCond    *sync.Cond
+	wgServer            *sync.WaitGroup
+	wgWorker            *sync.WaitGroup
+	delayedWriteResult  error
 }
 
 func New(ctx context.Context, args config.ServerConfig, logger *zap.Logger) (*DBStore, error) {
@@ -42,6 +52,24 @@ func New(ctx context.Context, args config.ServerConfig, logger *zap.Logger) (*DB
 
 	ms.Gauges.db = ms.db
 	ms.Counters.db = ms.db
+
+	ms.useCache = args.BandwidthPriority
+	ms.cachedWriteInterval = args.CachedWriteInterval
+	if ms.useCache {
+		ms.delayedWriteMutex = &sync.Mutex{}
+		ms.delayedWriteCond = sync.NewCond(&sync.Mutex{})
+		ms.wgServer = &sync.WaitGroup{}
+		ms.wgWorker = &sync.WaitGroup{}
+		ms.cachedCounters = ThreadSafeMap[int64]{
+			mutex: sync.RWMutex{},
+			data:  make(map[string]int64),
+		}
+		ms.cachedGauges = ThreadSafeMap[float64]{
+			mutex: sync.RWMutex{},
+			data:  make(map[string]float64),
+		}
+		go ms.delayedWriteWorker(ctx)
+	}
 
 	if args.Restore {
 		err := ms.Load(ctx)
@@ -71,33 +99,64 @@ func (ths *MetricFloat64) createTable(ctx context.Context, tx *sql.Tx) error {
     PRIMARY KEY ("Key")
 )`
 
-	var err error
-
-	if tx == nil {
-		_, err = ths.db.ExecContext(ctx, crTableCommand)
-	} else {
-		_, err = tx.ExecContext(ctx, crTableCommand)
-	}
+	db := NewTxManager(ths.db, tx)
+	_, err := db.ExecContext(ctx, crTableCommand)
 
 	return err
 }
 
-func (ths *MetricFloat64) applyValueDB(ctx context.Context, tx *sql.Tx, key string, value float64) error {
+func (ths *MetricFloat64) applyValueDB(ctx context.Context, key string, value float64) error {
 
 	// Fails when executed in transaction if duplicate keys exists
 	query := `INSERT INTO "gauges" ("Key", "Value") VALUES ($1, $2) ON CONFLICT ("Key") DO UPDATE SET "Value" = EXCLUDED."Value"`
 
-	var err error
-	if tx == nil {
-		_, err = ths.db.ExecContext(ctx, query, key, value)
-	} else {
-		_, err = tx.ExecContext(ctx, query, key, value)
-	}
+	_, err := ths.db.ExecContext(ctx, query, key, value)
 
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (ths *MetricFloat64) applyValueDBBatch(ctx context.Context, tx *sql.Tx, data map[string]float64) error {
+
+	if data == nil {
+		return nil
+	}
+
+	ctr := 0
+	paramsStr := make([]string, len(data))
+	paramsVals := make([]any, len(data)*2)
+
+	for key, val := range data {
+		key, val := key, val
+		paramsStr[ctr] = fmt.Sprintf("($%d,$%d)", ctr*2+1, ctr*2+2)
+		paramsVals[ctr*2] = key
+		paramsVals[ctr*2+1] = val
+		ctr++
+	}
+
+	if ctr == 0 {
+		return nil
+	}
+
+	err := ths.createTable(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	query := `INSERT INTO "gauges" ("Key", "Value") VALUES ` + strings.Join(paramsStr, ",") + " "
+	query += `ON CONFLICT ("Key") DO UPDATE SET "Value" = EXCLUDED."Value"`
+
+	db := NewTxManager(ths.db, tx)
+	_, err = db.ExecContext(ctx, query, paramsVals...)
+	if err != nil {
+		println(err.Error())
+		return err
+	}
+
+	return nil
+
 }
 
 func (ths *MetricFloat64) getValueDB(ctx context.Context, keys ...string) (map[string]float64, error) {
@@ -170,7 +229,7 @@ func (ths *MetricFloat64) WriteData(ctx context.Context, key string, value strin
 			return err
 		}
 
-		err = ths.applyValueDB(ctx, nil, key, v)
+		err = ths.applyValueDB(ctx, key, v)
 		if err != nil {
 			return err
 		}
@@ -180,23 +239,18 @@ func (ths *MetricFloat64) WriteData(ctx context.Context, key string, value strin
 	return nil
 }
 
-func (ths *MetricFloat64) writeDataPPTX(ctx context.Context, tx *sql.Tx, key string, value float64) error {
+func (ths *MetricFloat64) WriteDataPP(ctx context.Context, key string, value float64) error {
 
 	err := ths.createTable(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	err = ths.applyValueDB(ctx, tx, key, value)
+	err = ths.applyValueDB(ctx, key, value)
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-func (ths *MetricFloat64) WriteDataPP(ctx context.Context, key string, value float64) error {
-
-	return ths.writeDataPPTX(ctx, nil, key, value)
 }
 
 // Int64 Cumulative
@@ -217,60 +271,63 @@ func (ths *MetricInt64Sum) createTable(ctx context.Context, tx *sql.Tx) error {
 	PRIMARY KEY ("Key")
 )`
 
-	var err error
-	if tx == nil {
-		_, err = ths.db.ExecContext(ctx, crTableCommand)
-	} else {
-		_, err = tx.ExecContext(ctx, crTableCommand)
-	}
+	db := NewTxManager(ths.db, tx)
+	_, err := db.ExecContext(ctx, crTableCommand)
 
 	return err
 }
 
-func (ths *MetricInt64Sum) applyValueDB(ctx context.Context, tx *sql.Tx, key string, value int64) error {
+func (ths *MetricInt64Sum) applyValueDB(ctx context.Context, key string, value int64) error {
 
 	query := `INSERT INTO "counters" ("Key", "Value") VALUES ($1, $2) ON CONFLICT ("Key") DO UPDATE SET "Value" = "counters"."Value" + EXCLUDED."Value"`
 
-	var err error
-	if tx == nil {
-		_, err = ths.db.ExecContext(ctx, query, key, value)
-	} else {
-		_, err = tx.ExecContext(ctx, query, key, value)
-	}
+	_, err := ths.db.ExecContext(ctx, query, key, value)
 
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
 
-	// By some reason rollbacks when commit transaction
+func (ths *MetricInt64Sum) applyValueDBBatch(ctx context.Context, tx *sql.Tx, data map[string]int64) error {
 
-	/*query := `INSERT INTO "counters" ("Key", "Value") VALUES ($1, $2)`
-
-	var err error
-	if tx == nil {
-		_, err = ths.db.ExecContext(ctx, query, key, value)
-	} else {
-		_, err = tx.ExecContext(ctx, query, key, value)
+	if data == nil {
+		return nil
 	}
 
+	ctr := 0
+	paramsStr := make([]string, len(data))
+	paramsVals := make([]any, len(data)*2)
+
+	for key, val := range data {
+		key, val := key, val
+		paramsStr[ctr] = fmt.Sprintf("($%d,$%d)", ctr*2+1, ctr*2+2)
+		paramsVals[ctr*2] = key
+		paramsVals[ctr*2+1] = val
+		ctr++
+	}
+
+	if ctr == 0 {
+		return nil
+	}
+
+	err := ths.createTable(ctx, tx)
 	if err != nil {
-		// Looks like this counter already exist, try UPDATE
-		query = `UPDATE "counters" SET "Value" = "Value" + $2 WHERE "Key" = $1`
-
-		if tx == nil {
-			_, err = ths.db.ExecContext(ctx, query, key, value)
-		} else {
-			_, err = tx.ExecContext(ctx, query, key, value)
-		}
-
-		if err != nil {
-			return err
-		}
+		return err
 	}
 
-	return nil*/
+	query := `INSERT INTO "counters" ("Key", "Value") VALUES ` + strings.Join(paramsStr, ",") + " "
+	query += `ON CONFLICT ("Key") DO UPDATE SET "Value" = "counters"."Value" + EXCLUDED."Value"`
+
+	db := NewTxManager(ths.db, tx)
+	_, err = db.ExecContext(ctx, query, paramsVals...)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 func (ths *MetricInt64Sum) getValueDB(ctx context.Context, keys ...string) (map[string]int64, error) {
@@ -293,7 +350,6 @@ func (ths *MetricInt64Sum) getValueDB(ctx context.Context, keys ...string) (map[
 
 	res := make(map[string]int64)
 
-	var err error
 	rows, err := ths.db.QueryContext(ctx, query, ks...)
 
 	if err != nil {
@@ -345,23 +401,7 @@ func (ths *MetricInt64Sum) WriteData(ctx context.Context, key string, value stri
 	}
 
 	//ths.data[key] += v
-	err = ths.applyValueDB(ctx, nil, key, int64(val))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (ths *MetricInt64Sum) writeDataPPTX(ctx context.Context, tx *sql.Tx, key string, value int64) error {
-
-	err := ths.createTable(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	//ths.data[key] += v
-	err = ths.applyValueDB(ctx, tx, key, value)
+	err = ths.applyValueDB(ctx, key, int64(val))
 	if err != nil {
 		return err
 	}
@@ -370,86 +410,129 @@ func (ths *MetricInt64Sum) writeDataPPTX(ctx context.Context, tx *sql.Tx, key st
 }
 
 func (ths *MetricInt64Sum) WriteDataPP(ctx context.Context, key string, value int64) error {
-	return ths.writeDataPPTX(ctx, nil, key, value)
-}
-
-// DumpLoad
-
-func (ms *DBStore) Dump(ctx context.Context) error {
-
-	return nil
-}
-
-func (ms *DBStore) Load(ctx context.Context) error {
-
-	return nil
-}
-
-func (ms *DBStore) WriteDataMulty(ctx context.Context, metrics storagecommons.MetricsDB) error {
-
-	tx, err := ms.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	err := ths.createTable(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	for _, v := range metrics.MetricsDB {
-		_, err = ms.writeDataTX(ctx, tx, v)
+	//ths.data[key] += v
+	err = ths.applyValueDB(ctx, key, value)
+	if err != nil {
+		return err
+	}
 
-		if err != nil {
-			err = tx.Rollback()
-			if err != nil {
-				return err
+	return nil
+}
+
+// Common point for writing data
+func (ms *DBStore) WriteDataMulti(ctx context.Context, metrics storagecommons.MetricsDB) error {
+	if !ms.useCache {
+		return ms.WriteDataMultiBatch(ctx, metrics)
+	} else {
+		// Wait for worker
+		ms.wgWorker.Wait()
+
+		ms.wgServer.Add(1)
+		// Fill maps
+		// Check for errors
+		for _, val := range metrics.MetricsDB {
+			switch val.MType {
+			case "counter":
+				if val.Delta == nil {
+					return errors.New("no Delta data provided")
+				}
+			case "gauge":
+				if val.Value == nil {
+					return errors.New("no Value data provided")
+				}
+			default:
+				return errors.New("Unknown metric type: " + val.MType)
 			}
-			return err
 		}
-	}
+		// Filling data
+		for _, val := range metrics.MetricsDB {
+			val := val
+			switch val.MType {
+			case "counter":
+				ms.cachedCounters.Inc(val.ID, *val.Delta)
+			case "gauge":
+				ms.cachedGauges.Set(val.ID, *val.Value)
+			}
+		}
+		// End Fill maps
 
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
+		ms.delayedWriteCond.L.Lock()
+		ms.wgServer.Done()
 
-	return nil
+		// Waiting for release
+		ms.delayedWriteCond.Wait()
+		ms.delayedWriteCond.L.Unlock()
+		return ms.delayedWriteResult
+	}
 }
 
-func (ms *DBStore) writeDataTX(ctx context.Context, tx *sql.Tx, metrics storagecommons.Metrics) (rMetrics storagecommons.Metrics, rError error) {
+func (ms *DBStore) WriteData(ctx context.Context, metrics storagecommons.Metrics) (rMetrics storagecommons.Metrics, rError error) {
+
 	rError = nil
 	rMetrics = metrics
 
-	switch metrics.MType {
-	case "gauge":
-		if metrics.Value == nil {
-			return metrics, errors.New("no Value data provided")
-		}
-		ms.Gauges.writeDataPPTX(ctx, tx, metrics.ID, *metrics.Value)
-		rMetrics = metrics
-	case "counter":
-		if metrics.Delta == nil {
-			return metrics, errors.New("no Delta data provided")
-		}
-		ms.Counters.writeDataPPTX(ctx, tx, metrics.ID, *metrics.Delta)
-
-		data, err := ms.Counters.ReadData(ctx)
-		if err != nil {
-			return rMetrics, err
-		}
-
-		vl := data[metrics.ID]
-		metrics.Delta = &vl
-		rMetrics = metrics
-	default:
-		rError = errors.New("Unknown metric type: " + metrics.MType)
-	}
-
-	if ms.syncWrite {
-		ms.Dump(ctx)
+	err := ms.WriteDataMulti(ctx, storagecommons.MetricsDB{MetricsDB: []storagecommons.Metrics{metrics}})
+	if err != nil {
+		return metrics, err
 	}
 
 	return
 }
 
-func (ms *DBStore) WriteData(ctx context.Context, metrics storagecommons.Metrics) (rMetrics storagecommons.Metrics, rError error) {
-	return ms.writeDataTX(ctx, nil, metrics)
+// Batch write Raw
+func (ms *DBStore) WriteDataMultiBatchRaw(ctx context.Context, gauges map[string]float64, counters map[string]int64) error {
+
+	tx, _ := ms.db.BeginTx(ctx, nil)
+	if tx == nil {
+		return errors.New("cannot begin transaction")
+	}
+
+	ms.Gauges.applyValueDBBatch(ctx, tx, gauges)
+	ms.Counters.applyValueDBBatch(ctx, tx, counters)
+
+	err := tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Batch write
+func (ms *DBStore) WriteDataMultiBatch(ctx context.Context, metrics storagecommons.MetricsDB) error {
+
+	gauges := map[string]float64{}
+	counters := map[string]int64{}
+
+	for _, val := range metrics.MetricsDB {
+		val := val
+		switch val.MType {
+		case "counter":
+			if val.Delta == nil {
+				return errors.New("no Delta data provided")
+			}
+			counters[val.ID] += *val.Delta
+		case "gauge":
+			if val.Value == nil {
+				return errors.New("no Value data provided")
+			}
+			gauges[val.ID] = *val.Value
+		default:
+			return errors.New("Unknown metric type: " + val.MType)
+		}
+	}
+
+	err := ms.WriteDataMultiBatchRaw(ctx, gauges, counters)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (ms *DBStore) ReadData(ctx context.Context, metrics storagecommons.Metrics) (storagecommons.Metrics, error) {
@@ -509,49 +592,12 @@ func (ms *DBStore) Ping(ctx context.Context) error {
 	return ms.db.PingContext(ctxw)
 }
 
-// Batch write (does not pass github tests)
-func (ms *DBStore) WriteDataMultyBatch(ctx context.Context, metrics storagecommons.MetricsDB) error {
+// DumpLoad
 
-	ctr := 0
-	paramsStr := make([]string, 0)
-	paramsVals := make([]any, 0)
-	tx, _ := ms.db.BeginTx(ctx, nil)
+func (ms *DBStore) Dump(ctx context.Context) error {
+	return nil
+}
 
-	for _, record := range metrics.MetricsDB {
-		switch record.MType {
-		case "counter":
-			_, err := ms.writeDataTX(ctx, tx, record)
-			if err != nil {
-				return err
-			}
-		case "gauge":
-			ID := record.ID
-			Value := *record.Value
-			paramsStr = append(paramsStr, fmt.Sprintf("($%d,$%d)", ctr*2+1, ctr*2+2))
-			paramsVals = append(paramsVals, ID)
-			paramsVals = append(paramsVals, Value)
-			ctr++
-		}
-	}
-
-	err := ms.Gauges.createTable(ctx, tx)
-	if err != nil {
-		return err
-	}
-
-	query := `INSERT INTO "gauges" ("Key", "Value") VALUES ` + strings.Join(paramsStr, ",") + " "
-	query += `ON CONFLICT ("Key") DO UPDATE SET "Value" = EXCLUDED."Value"`
-
-	_, err = tx.Exec(query, paramsVals...)
-	if err != nil {
-		println(err.Error())
-		return err
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
-
+func (ms *DBStore) Load(ctx context.Context) error {
 	return nil
 }

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"yaprakticum-go-track2/internal/config"
 	"yaprakticum-go-track2/internal/shared"
 	"yaprakticum-go-track2/internal/storage/storagecommons"
@@ -70,17 +71,41 @@ func (h Handlers) MetricUpdateHandler(res http.ResponseWriter, req *http.Request
 	switch typ {
 	case "gauge":
 
-		if err := h.dataStorage.GetGauges().WriteData(req.Context(), name, val); err != nil {
+		parsedVal, err := strconv.ParseFloat(val, 64)
+		if err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 			return
 		}
+
+		if err := h.dataStorage.WriteDataMulti(req.Context(), storagecommons.MetricsDB{
+			MetricsDB: []storagecommons.Metrics{{Delta: nil, Value: &parsedVal, ID: name, MType: typ}}}); err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		/*if err := h.dataStorage.GetGauges().WriteData(req.Context(), name, val); err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}*/
 
 	case "counter":
 
-		if err := h.dataStorage.GetCounters().WriteData(req.Context(), name, val); err != nil {
+		parsedVal, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
 			http.Error(res, err.Error(), http.StatusBadRequest)
 			return
 		}
+
+		if err := h.dataStorage.WriteDataMulti(req.Context(), storagecommons.MetricsDB{
+			MetricsDB: []storagecommons.Metrics{{Delta: &parsedVal, Value: nil, ID: name, MType: typ}}}); err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		/*if err := h.dataStorage.GetCounters().WriteData(req.Context(), name, val); err != nil {
+			http.Error(res, err.Error(), http.StatusBadRequest)
+			return
+		}*/
 
 	default:
 
@@ -147,7 +172,7 @@ func (h Handlers) MultiMetricsUpdateHandlerREST(res http.ResponseWriter, req *ht
 		return
 	}
 
-	err = h.dataStorage.WriteDataMulty(req.Context(), dta)
+	err = h.dataStorage.WriteDataMulti(req.Context(), dta)
 
 	if err == nil {
 		return

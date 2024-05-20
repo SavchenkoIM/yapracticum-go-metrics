@@ -10,7 +10,7 @@ import (
 	"yaprakticum-go-track2/internal/testhelpers"
 )
 
-type dbMultyUpdateFunc func(ctx context.Context, db storagecommons.MetricsDB) error
+type dbMultiUpdateFunc func(ctx context.Context, db storagecommons.MetricsDB) error
 
 func performTest(b *testing.B, testNum int) {
 	ctx := context.Background()
@@ -21,6 +21,15 @@ func performTest(b *testing.B, testNum int) {
 		elem.ID = "gauge" + strconv.Itoa(i)
 		elem.MType = "gauge"
 		elem.Value = &ii
+		db.MetricsDB = append(db.MetricsDB, elem)
+	}
+
+	for i := 0; i < 20; i++ {
+		ii := int64(i)
+		elem := storagecommons.Metrics{}
+		elem.ID = "counter" + strconv.Itoa(i)
+		elem.MType = "counter"
+		elem.Delta = &ii
 		db.MetricsDB = append(db.MetricsDB, elem)
 	}
 
@@ -42,12 +51,12 @@ func performTest(b *testing.B, testNum int) {
 		pg.Close()
 	}()
 
-	var fun dbMultyUpdateFunc
+	var fun dbMultiUpdateFunc
 	switch testNum {
 	case 1:
-		fun = store.WriteDataMultyBatch
+		fun = store.WriteDataMultiBatch
 	case 2:
-		fun = store.WriteDataMulty
+		fun = store.WriteDataMulti
 	default:
 		b.Fatal("Unknown test")
 	}
@@ -62,10 +71,10 @@ func performTest(b *testing.B, testNum int) {
 	}
 }
 
-func BenchmarkDBStore_WriteDataMulty(b *testing.B) {
+func BenchmarkDBStore_WriteDataMulti(b *testing.B) {
 	performTest(b, 2)
 }
 
-func BenchmarkDBStore_WriteDataMultyBatch(b *testing.B) {
+func BenchmarkDBStore_WriteDataMultiBatch(b *testing.B) {
 	performTest(b, 1)
 }

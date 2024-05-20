@@ -5,227 +5,88 @@ package config
 import (
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"flag"
-	"fmt"
+	"net"
 	"os"
-	"strconv"
 	"time"
 )
 
-// Server configuration
-type ServerConfig struct {
-	Endp            string
-	EndpProm        string
-	FileStoragePath string
-	ConnString      string
-	Key             string
-	StoreInterval   time.Duration
-	Restore         bool
-	UseRSA          bool
-	RSAPrivateKey   rsa.PrivateKey
+// Gets provided Command Line flags or and Enviroment Vars of configuration
+func getProvidedFlags(visitFunc func(func(f *flag.Flag))) []string {
+	res := make([]string, 0)
+	visitFunc(func(f *flag.Flag) {
+		res = append(res, f.Name)
+	})
+	return res
 }
 
-type ServerConfigFile struct {
-	Address       string `json:"address,omitempty"`
-	Restore       bool   `json:"restore,omitempty"`
-	StoreInterval string `json:"store_interval,omitempty"`
-	StoreFile     string `json:"store_file,omitempty"`
-	DatabaseDsn   string `json:"database_dsn,omitempty"`
-	CryptoKey     string `json:"crypto_key,omitempty"`
-}
-
-// Parses Server configuration
-func (cfg *ServerConfig) Load() ServerConfig {
-	endp := flag.String("a", ":8080", "Server endpoint address:port")
-	endpprom := flag.String("ap", ":18080", "Prom server endpoint address:port")
-	storeInterval := flag.Int64("i", 300, "Store interval")
-	fileStoragePath := flag.String("f", "/tmp/metrics-db.json", "File storage path")
-	restoreData := flag.Bool("r", true, "Restore data from disc")
-	connString := flag.String("d", "", "DB Connection string")
-	key := flag.String("k", "", "Key")
-	rsakey := flag.String("crypto-key", "", "RSA private key file name")
-	configFile := flag.String("c", "", "Config file")
-	flag.StringVar(configFile, "config", "", "Config file")
-	flag.Parse()
-
-	if val, exist := os.LookupEnv("CONFIG"); exist {
-		*configFile = val
+// Returns duration from string representation (of nil if failed)
+func getDurationFromString(sRepr *string) *time.Duration {
+	if sRepr == nil {
+		return nil
 	}
-	if *configFile != "" {
-		scf := ServerConfigFile{}
-		cfile, err := os.ReadFile(*configFile)
-		if err == nil {
-			err = json.Unmarshal(cfile, &scf)
-		}
-		if err == nil {
-			*endp = scf.Address
-			*restoreData = scf.Restore
-			duration, err := time.ParseDuration(scf.StoreInterval)
-			if err == nil {
-				*storeInterval = int64(duration.Seconds())
-			}
-			*fileStoragePath = scf.StoreFile
-			*connString = scf.DatabaseDsn
-			*rsakey = scf.CryptoKey
-		}
-	}
-
-	if val, exist := os.LookupEnv("ADDRESS"); exist {
-		*endp = val
-	}
-	if val, exist := os.LookupEnv("ADDRESSPROM"); exist {
-		*endpprom = val
-	}
-	if _, exist := os.LookupEnv("STORE_INTERVAL"); exist {
-		if val, err := strconv.ParseInt(os.Getenv("STORE_INTERVAL"), 10, 64); err != nil {
-			*storeInterval = val
-		}
-	}
-	if val, exist := os.LookupEnv("FILE_STORAGE_PATH"); exist {
-		*fileStoragePath = val
-	}
-	if _, exist := os.LookupEnv("RESTORE"); exist {
-		if val, err := strconv.ParseBool(os.Getenv("RESTORE")); err != nil {
-			*restoreData = val
-		}
-	}
-	if val, exist := os.LookupEnv("DATABASE_DSN"); exist {
-		*connString = val
-	}
-	if val, exist := os.LookupEnv("KEY"); exist {
-		*key = val
-	}
-	if val, exist := os.LookupEnv("CRYPTO_KEY"); exist {
-		*rsakey = val
-	}
-
-	cfg.Endp = *endp
-	cfg.EndpProm = *endpprom
-	cfg.FileStoragePath = *fileStoragePath
-	cfg.Restore = *restoreData
-	cfg.StoreInterval = time.Duration(*storeInterval) * time.Second
-	cfg.ConnString = *connString
-	cfg.Key = *key
-
-	if *rsakey == "" {
-		return *cfg
-	}
-	pk, err := os.ReadFile(*rsakey)
+	d, err := time.ParseDuration(*sRepr)
 	if err != nil {
-		cfg.UseRSA = false
-		return *cfg
+		return nil
+	}
+	return &d
+}
+
+// Returns nil if parameter does not set, otherwise pointer to the parameter
+func getParWithSetCheck[S any](val S, isSet bool) *S {
+	if !isSet {
+		return nil
+	}
+	return &val
+}
+
+// Sets dst value equal to src value if src is not nil, otherwise do nothing
+func combineParameter[S any](dst *S, src *S) {
+	if src == nil {
+		return
+	}
+	*dst = *src
+}
+
+// Returns RSA Private Key object stored in file
+func getRSAPrivateKey(filename string) (PK rsa.PrivateKey, UseRSA bool) {
+	var key rsa.PrivateKey
+	if filename == "" {
+		return key, false
+	}
+	pk, err := os.ReadFile(filename)
+	if err != nil {
+		return key, false
 	}
 	privateKey, err := x509.ParsePKCS1PrivateKey(pk)
 	if err != nil {
-		cfg.UseRSA = false
-		return *cfg
+		return key, false
 	}
-	cfg.RSAPrivateKey = *privateKey
-	cfg.UseRSA = true
-
-	return *cfg
+	return *privateKey, true
 }
 
-// Agent configuration
-type ClientConfig struct {
-	Endp           string
-	Key            string
-	ReqLimit       int64
-	PollInterval   time.Duration
-	ReportInterval time.Duration
-	UseRSA         bool
-	RSAPublicKey   rsa.PublicKey
-}
-
-type ClientConfigFile struct {
-	Address        string `json:"address,omitempty"`
-	ReportInterval string `json:"report_interval,omitempty"`
-	PollInterval   string `json:"poll_interval,omitempty"`
-	CryptoKey      string `json:"crypto_key,omitempty"`
-}
-
-// Parses Agent configuration
-func (cfg *ClientConfig) Load() ClientConfig {
-	endp := flag.String("a", "localhost:8080", "Server endpoint address:port")
-	pollInterval := flag.Float64("p", 2, "pollInterval")
-	reportInterval := flag.Float64("r", 10, "reportInterval")
-	key := flag.String("k", "", "Key")
-	rateLimit := flag.Int64("l", 5, "Limit of simultaneous requests")
-	rsakey := flag.String("crypto-key", "", "RSA public key file name")
-	configFile := flag.String("c", "", "Config file")
-	flag.StringVar(configFile, "config", "", "Config file")
-	flag.Parse()
-
-	if val, exist := os.LookupEnv("CONFIG"); exist {
-		*configFile = val
+// Returns RSA Public Key object stored in file
+func getRSAPublicKey(filename string) (PK rsa.PublicKey, UseRSA bool) {
+	var key rsa.PublicKey
+	if filename == "" {
+		return key, false
 	}
-	if *configFile != "" {
-		ccf := ClientConfigFile{}
-		cfile, err := os.ReadFile(*configFile)
-		if err == nil {
-			err = json.Unmarshal(cfile, &ccf)
-		}
-		fmt.Println(ccf)
-		if err == nil {
-			*endp = ccf.Address
-			duration, err := time.ParseDuration(ccf.ReportInterval)
-			if err == nil {
-				*reportInterval = duration.Seconds()
-			}
-			duration, err = time.ParseDuration(ccf.PollInterval)
-			if err == nil {
-				*pollInterval = duration.Seconds()
-			}
-			*rsakey = ccf.CryptoKey
-		}
-	}
-
-	if val, exist := os.LookupEnv("ADDRESS"); exist {
-		*endp = val
-	}
-	if _, exist := os.LookupEnv("REPORT_INTERVAL"); exist {
-		if val, err := strconv.ParseFloat(os.Getenv("REPORT_INTERVAL"), 64); err != nil {
-			*reportInterval = val
-		}
-	}
-	if _, exist := os.LookupEnv("POLL_INTERVAL"); exist {
-		if val, err := strconv.ParseFloat(os.Getenv("POLL_INTERVAL"), 64); err != nil {
-			*pollInterval = val
-		}
-	}
-	if val, exist := os.LookupEnv("KEY"); exist {
-		*key = val
-	}
-	if _, exist := os.LookupEnv("RATE_LIMIT"); exist {
-		if val, err := strconv.ParseInt(os.Getenv("POLL_INTERVAL"), 10, 0); err != nil {
-			*rateLimit = val
-		}
-	}
-
-	cfg.Endp = *endp
-	cfg.PollInterval = time.Duration(*pollInterval) * time.Second
-	cfg.ReportInterval = time.Duration(*reportInterval) * time.Second
-	cfg.Key = *key
-	cfg.ReqLimit = *rateLimit
-
-	if *rsakey == "" {
-		return *cfg
-	}
-	pk, err := os.ReadFile(*rsakey)
+	pk, err := os.ReadFile(filename)
 	if err != nil {
-		println(err.Error())
-		cfg.UseRSA = false
-		return *cfg
+		return key, false
 	}
 	publicKey, err := x509.ParsePKCS1PublicKey(pk)
 	if err != nil {
-		println(err.Error())
-		cfg.UseRSA = false
-		return *cfg
+		return key, false
 	}
-	cfg.RSAPublicKey = *publicKey
-	cfg.UseRSA = true
+	return *publicKey, true
+}
 
-	return *cfg
+// Returns IP of interface, used to connect to desired IP
+func getPreferredIP(url string) net.IP {
+	conn, err := net.Dial("udp", url)
+	if err != nil {
+		return nil
+	}
+	return conn.LocalAddr().(*net.UDPAddr).IP
 }

@@ -22,7 +22,7 @@ package dbstore
 		{ID: "bcm1", MType: "counter", Delta: &i},
 	}
 	t.Run("Batch Multi Write", func(t *testing.T) {
-		err = db.WriteDataMultyBatch(ctx, mdb)
+		err = db.WriteDataMultiBatch(ctx, mdb)
 		assert.NoError(t, err)
 	})
 
@@ -67,12 +67,12 @@ package dbstore
 		{ID: "cm1", MType: "counter", Delta: &i},
 	}
 	t.Run("DB Closed Write Multi", func(t *testing.T) {
-		err = db.WriteDataMulty(ctx, mdb)
+		err = db.WriteDataMulti(ctx, mdb)
 		assert.Error(t, err)
 	})
 
 	t.Run("DB Closed Batch Multi Write", func(t *testing.T) {
-		err = db.WriteDataMultyBatch(ctx, mdb)
+		err = db.WriteDataMultiBatch(ctx, mdb)
 		assert.Error(t, err)
 	})
 

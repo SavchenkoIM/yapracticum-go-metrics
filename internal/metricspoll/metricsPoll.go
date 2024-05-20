@@ -24,12 +24,12 @@ import (
 	"sync/atomic"
 	"time"
 	"yaprakticum-go-track2/internal/config"
+	"yaprakticum-go-track2/internal/grpcimp/client"
 	"yaprakticum-go-track2/internal/shared"
 	"yaprakticum-go-track2/internal/storage/storagecommons"
 )
 
-// Counter of refresh data calls since last send
-var accumPollCounter atomic.Int64
+type sendDataFunction func(ctx context.Context, data storagecommons.MetricsDB)
 
 // Request function prototype for RetryRequest method
 type RetryFunc func(r *http.Request) (*http.Response, error)
@@ -74,21 +74,31 @@ type metricsData struct {
 
 // Layer for complex metrics poll and send handling
 type MetricsHandler struct {
-	metricsMap      map[string]metricsData
-	counter         int64
-	client          http.Client
-	cfg             config.ClientConfig
-	metricsMapMutex sync.RWMutex
+	metricsMap       map[string]metricsData
+	counter          int64
+	client           http.Client
+	cfg              config.ClientConfig
+	metricsMapMutex  sync.RWMutex
+	accumPollCounter atomic.Int64 // Counter of refresh data calls since last send
+	grpcCli          *client.MetricsGRPCClient
+	sendFunc         sendDataFunction
 }
 
 // Constructor for MetricsHandler
-func NewMetricsHandler(cfg config.ClientConfig) MetricsHandler {
-	srvEndp = cfg.Endp
-	shared.Logger.Info(srvEndp)
-	return MetricsHandler{
+func NewMetricsHandler(ctx context.Context, cfg config.ClientConfig) *MetricsHandler {
+	shared.Logger.Info(cfg.Endp)
+	res := MetricsHandler{
 		metricsMap: make(map[string]metricsData),
 		cfg:        cfg,
 	}
+	if cfg.MProto == "grpc" {
+		res.grpcCli = client.NewMetricsGRPCClient(cfg, shared.Logger)
+		res.grpcCli.Start(ctx)
+		res.sendFunc = res.SendDataGRPC
+	} else {
+		res.sendFunc = res.SendDataHTTP
+	}
+	return &res
 }
 
 // Auxilary function for compressing request body
@@ -162,7 +172,7 @@ func (ths *MetricsHandler) prepareData() storagecommons.MetricsDB {
 	// So agent need to send accumulated PollCounter value in Send function, and this leads to
 	// changing metricsMap["PollCount"] before each Send
 
-	ths.metricsMap["PollCount"] = metricsData{typ: "counter", ctrValue: accumPollCounter.Swap(0)}
+	ths.metricsMap["PollCount"] = metricsData{typ: "counter", ctrValue: ths.accumPollCounter.Swap(0)}
 	for k, v := range ths.metricsMap {
 		k, v := k, v
 		var dta_ storagecommons.Metrics
@@ -183,11 +193,12 @@ func (ths *MetricsHandler) prepareData() storagecommons.MetricsDB {
 
 // Sends data to server
 func (ths *MetricsHandler) SendData(ctx context.Context) {
+	ths.sendFunc(ctx, ths.prepareData())
+}
 
-	dta := ths.prepareData()
-
+func (ths *MetricsHandler) SendDataHTTP(ctx context.Context, data storagecommons.MetricsDB) {
 	// Compress data
-	jm, _ := json.Marshal(dta.MetricsDB)
+	jm, _ := json.Marshal(data.MetricsDB)
 	b, _ := compressGzip(jm)
 	b, err := getEncryptedBody(b, ths.cfg)
 
@@ -198,9 +209,12 @@ func (ths *MetricsHandler) SendData(ctx context.Context) {
 
 	bb := bytes.NewBuffer(b)
 
-	req, _ := http.NewRequest(http.MethodPost, "http://"+srvEndp+"/updates/", bb)
+	req, _ := http.NewRequest(http.MethodPost, "http://"+ths.cfg.Endp+"/updates/", bb)
 	req.Header.Set("Content-Encoding", "gzip")
 	req.Header.Set("Accept-Encoding", "gzip")
+	if ths.cfg.RealIP != nil {
+		req.Header.Set("X-Real-IP", ths.cfg.RealIP.String())
+	}
 
 	addHmacSha256(req, jm, ths.cfg.Key)
 
@@ -214,7 +228,13 @@ func (ths *MetricsHandler) SendData(ctx context.Context) {
 	res.Body.Close()
 }
 
-var srvEndp string
+// Sends data to server
+func (ths *MetricsHandler) SendDataGRPC(ctx context.Context, data storagecommons.MetricsDB) {
+	err := ths.grpcCli.SendMetricsData(ctx, data)
+	if err != nil {
+		shared.Logger.Sugar().Errorf("GRPC Send Error: %v", err)
+	}
+}
 
 // Calculates extended metrics data
 func (ths *MetricsHandler) RefreshDataExt(ctx context.Context) {
@@ -273,6 +293,6 @@ func (ths *MetricsHandler) RefreshData(ctx context.Context) {
 	ths.metricsMap["RandomValue"] = metricsData{typ: "gauge", value: rand.Float64()}
 	ths.metricsMap["RandomValue"] = metricsData{typ: "gauge", value: rand.Float64()}
 	//ths.metricsMap["PollCount"] = metricsData{typ: "counter", ctrValue: 1}
-	accumPollCounter.Add(1)
+	ths.accumPollCounter.Add(1)
 
 }

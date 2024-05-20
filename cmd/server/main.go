@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 	"yaprakticum-go-track2/internal/config"
+	gserver "yaprakticum-go-track2/internal/grpcimp/server"
 	"yaprakticum-go-track2/internal/handlers"
 	"yaprakticum-go-track2/internal/prom"
 	"yaprakticum-go-track2/internal/prom/promserver"
@@ -58,7 +59,7 @@ func main() {
 		panic(err)
 	}
 
-	var parentContext context.Context
+	var parentContext context.Context = context.Background()
 	dataStorage, err := storage.InitStorage(parentContext, args, logger)
 	if err != nil {
 		panic(err)
@@ -69,14 +70,24 @@ func main() {
 
 	go DumpDBFile(parentContext, args, dataStorage, logger)
 
+	// Prom Start
 	server := http.Server{Addr: args.Endp,
 		Handler: handlers.Router(handlers.NewHandlers(dataStorage, cfg),
 			prom.NewCustomPromMetrics())}
 	serverProm := promserver.NewServer(args.EndpProm, logger)
-	serverProm.ListenAndServeAsync()
+	if args.EndpProm != "" {
+		serverProm.ListenAndServeAsync()
+	}
 
-	go catchSignal(parentContext, []ShutdownerCtx{&server, serverProm}, dataStorage, logger)
+	// gRPC start
+	gRPCserver := gserver.NewGRPCMetricsServer(dataStorage, args, logger)
+	if args.EndpGRPC != "" {
+		gRPCserver.ListenAndServeAsync()
+	}
 
+	go catchSignal(parentContext, []ShutdownerCtx{&server, serverProm, gRPCserver}, dataStorage, logger)
+
+	// HTTP server start
 	logger.Info("Server running at " + args.Endp)
 	if err := server.ListenAndServe(); err != nil {
 		panic(err)
